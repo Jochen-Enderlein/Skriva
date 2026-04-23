@@ -75,6 +75,7 @@ const slashCommands = [
   { label: "/ol", displayLabel: "Numbered List", type: "keyword", apply: "1. ", detail: "Ordered list" },
   { label: "/quote", displayLabel: "Quote", type: "keyword", apply: "> ", detail: "Blockquote" },
   { label: "/code", displayLabel: "Code Block", type: "keyword", apply: "```\n\n```", detail: "Fenced code" },
+  { label: "/mermaid", displayLabel: "Mermaid Diagram", type: "keyword", apply: "```mermaid\ngraph TD\n  A --> B\n```", detail: "Mermaid chart" },
   { label: "/table", displayLabel: "Table", type: "keyword", apply: "\n| Header | Header |\n|--------|--------|\n| Cell   | Cell   |\n", detail: "Markdown table" }
 ];
 

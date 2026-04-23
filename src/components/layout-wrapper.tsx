@@ -74,7 +74,7 @@ interface LayoutWrapperProps {
 }
 
 type DialogState = {
-  type: 'create-note' | 'create-folder' | 'delete-file' | 'delete-folder' | 'rename' | null;
+  type: 'create-note' | 'create-excalidraw' | 'create-folder' | 'delete-file' | 'delete-folder' | 'rename' | null;
   target?: string;
   parentFolder?: string;
 };
@@ -206,6 +206,15 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
             closeDialog();
           }
           break;
+        case 'create-excalidraw':
+          const excalidrawTitle = inputValue.toLowerCase().endsWith('.excalidraw') ? inputValue : `${inputValue}.excalidraw`;
+          const excalidrawRes = await createNoteAction(excalidrawTitle, dialog.parentFolder || '');
+          if (excalidrawRes.success) {
+            toast.success(`Excalidraw drawing "${excalidrawTitle}" created`);
+            router.push(`/note/${excalidrawRes.slug}`);
+            closeDialog();
+          }
+          break;
         case 'create-folder':
           const folderRes = await createFolderAction(inputValue, dialog.parentFolder || '');
           if (folderRes.success) {
@@ -266,17 +275,37 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                       <span className="truncate font-medium text-[13px]">{node.name}</span>
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <button className="opacity-0 group-hover/item:opacity-100 hover:bg-white/10 p-1 rounded transition-opacity">
-                          <MoreHorizontal className="h-3 w-3 opacity-30" />
-                        </button>
-                      }
-                    />
+                  
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => setDialog({ type: 'create-note', parentFolder: node.path })}
+                      className="hover:bg-white/10 p-1 rounded transition-colors"
+                      title="New Note"
+                    >
+                      <Plus className="h-3 w-3 opacity-50 hover:opacity-100" />
+                    </button>
+                    <button 
+                      onClick={() => setDialog({ type: 'create-excalidraw', parentFolder: node.path })}
+                      className="hover:bg-white/10 p-1 rounded transition-colors"
+                      title="New Excalidraw"
+                    >
+                      <Pencil className="h-3 w-3 opacity-50 hover:opacity-100" />
+                    </button>
+                    
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <button className="hover:bg-white/10 p-1 rounded transition-colors">
+                            <MoreHorizontal className="h-3 w-3 opacity-30" />
+                          </button>
+                        }
+                      />
                     <DropdownMenuContent align="end" className="w-40 bg-[#0f0f0f] border-white/10 text-white">
                       <DropdownMenuItem onClick={() => setDialog({ type: 'create-note', parentFolder: node.path })}>
                         <Plus className="mr-2 h-4 w-4" /> New Note
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setDialog({ type: 'create-excalidraw', parentFolder: node.path })}>
+                        <Pencil className="mr-2 h-4 w-4" /> New Excalidraw
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setDialog({ type: 'create-folder', parentFolder: node.path })}>
                         <FolderPlus className="mr-2 h-4 w-4" /> New Subfolder
@@ -287,7 +316,8 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                <CollapsibleContent>
+              </div>
+              <CollapsibleContent>
                   <SidebarMenuSub className="ml-4 border-l border-white/5 pl-2 min-w-max">
                     {Object.values(node.children).map(child => renderTree(child))}
                     {node.notes.map(note => (
@@ -383,6 +413,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
           <DialogHeader>
             <DialogTitle>
               {dialog.type === 'create-note' && 'Create New Note'}
+              {dialog.type === 'create-excalidraw' && 'Create New Excalidraw Drawing'}
               {dialog.type === 'create-folder' && 'Create New Folder'}
               {dialog.type === 'delete-file' && 'Delete Note'}
               {dialog.type === 'delete-folder' && 'Delete Folder'}
@@ -393,21 +424,21 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
               {dialog.type === 'delete-folder' && `Are you sure you want to delete "${dialog.target}" and all its contents?`}
             </DialogDescription>
           </DialogHeader>
-          {(dialog.type === 'create-note' || dialog.type === 'create-folder' || dialog.type === 'rename') && (
+          {(dialog.type === 'create-note' || dialog.type === 'create-excalidraw' || dialog.type === 'create-folder' || dialog.type === 'rename') && (
             <div className="py-4">
               <Input value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder="Enter name..." className="bg-white/5 border-white/10 text-white" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleConfirm()} />
             </div>
           )}
           <DialogFooter>
             <Button variant="ghost" onClick={closeDialog} className="text-white/50 hover:text-white hover:bg-white/5">Cancel</Button>
-            <Button variant={dialog.type?.startsWith('delete') ? 'destructive' : 'default'} onClick={handleConfirm} disabled={isPending || ((dialog.type === 'create-note' || dialog.type === 'create-folder' || dialog.type === 'rename') && !inputValue.trim())}>
+            <Button variant={dialog.type?.startsWith('delete') ? 'destructive' : 'default'} onClick={handleConfirm} disabled={isPending || ((dialog.type === 'create-note' || dialog.type === 'create-excalidraw' || dialog.type === 'create-folder' || dialog.type === 'rename') && !inputValue.trim())}>
               {isPending ? 'Processing...' : 'Confirm'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <div className="flex min-h-screen w-full bg-[#050505] text-foreground font-sans">
+      <div className="flex h-screen w-full overflow-hidden bg-[#050505] text-foreground font-sans">
         <SidebarUI collapsible="icon" className="border-r border-white/5 bg-[#080808]">
           <SidebarHeader className="border-b border-white/5 h-12 flex flex-row items-center px-4 justify-between">
             <div className="flex items-center gap-2 font-bold tracking-tight group-data-[collapsible=icon]:hidden">
@@ -416,6 +447,9 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
             <div className="flex items-center gap-0.5">
               <SidebarMenuButton size="sm" onClick={() => setDialog({ type: 'create-note', parentFolder: '' })} tooltip="New Note">
                 <Plus className="h-4 w-4" />
+              </SidebarMenuButton>
+              <SidebarMenuButton size="sm" onClick={() => setDialog({ type: 'create-excalidraw', parentFolder: '' })} tooltip="New Excalidraw Drawing">
+                <Pencil className="h-4 w-4" />
               </SidebarMenuButton>
               <SidebarMenuButton size="sm" onClick={() => setDialog({ type: 'create-folder', parentFolder: '' })} tooltip="New Folder">
                 <FolderPlus className="h-4 w-4" />
@@ -503,7 +537,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
             <div className="h-4 w-px bg-white/10 mx-2" />
             <TabList />
           </header>
-          <main className="flex-1 overflow-auto">{children}</main>
+          <main className="flex-1 overflow-hidden">{children}</main>
         </div>
       </div>
     </SidebarProvider>

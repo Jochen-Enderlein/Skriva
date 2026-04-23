@@ -7,7 +7,8 @@ import {
   moveItem as moveItemInFs,
   searchNotes,
   getStoredVaultPath,
-  setStoredVaultPath
+  setStoredVaultPath,
+  getNoteContent
 } from '@/lib/notes';
 import { revalidatePath } from 'next/cache';
 import fs from 'fs/promises';
@@ -15,8 +16,22 @@ import path from 'path';
 
 const NOTES_PATH = path.join(process.cwd(), 'assets/notes');
 
+export async function getNoteContentAction(slug: string) {
+  try {
+    const content = await getNoteContent(slug);
+    return { success: true, content };
+  } catch (error) {
+    console.error('Action error getting note content:', error);
+    return { success: false, error: 'Failed to get note content' };
+  }
+}
+
 export async function saveNoteAction(slug: string, content: string) {
   try {
+    if (content === undefined || content === null) {
+      console.error('saveNoteAction: content is undefined or null for slug:', slug);
+      return { success: false, error: 'Content is required' };
+    }
     await saveNoteToFs(slug, content);
     return { success: true };
   } catch (error) {
@@ -28,7 +43,18 @@ export async function saveNoteAction(slug: string, content: string) {
 export async function createNoteAction(title: string, folder: string = '') {
   try {
     const slug = path.join(folder, title);
-    await saveNoteToFs(slug, `# ${title}\n\n`);
+    const isExcalidraw = title.toLowerCase().endsWith('.excalidraw');
+    const content = isExcalidraw 
+      ? JSON.stringify({
+          type: "excalidraw",
+          version: 2,
+          source: "https://excalidraw.com",
+          elements: [],
+          appState: { viewBackgroundColor: "#121212" },
+          files: {},
+        })
+      : `# ${title}\n\n`;
+    await saveNoteToFs(slug, content);
     revalidatePath('/');
     return { success: true, slug };
   } catch (error) {

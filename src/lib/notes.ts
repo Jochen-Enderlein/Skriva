@@ -53,9 +53,10 @@ export async function getNotes(dir: string = ''): Promise<NoteMetadata[]> {
       if (entry.isDirectory()) {
         const subNotes = await getNotes(relativePath);
         notes = [...notes, ...subNotes];
-      } else if (entry.name.endsWith('.md')) {
-        const title = entry.name.replace(/\.md$/, '');
-        const slug = path.join(dir, title);
+      } else if (entry.name.endsWith('.md') || entry.name.endsWith('.excalidraw')) {
+        const isExcalidraw = entry.name.endsWith('.excalidraw');
+        const title = isExcalidraw ? entry.name : entry.name.replace(/\.md$/, '');
+        const slug = path.join(dir, isExcalidraw ? entry.name : title);
         notes.push({
           title,
           slug,
@@ -93,11 +94,18 @@ export async function getFolders(dir: string = ''): Promise<string[]> {
   }
 }
 
+function getFilePathFromSlug(notesBase: string, slug: string): string {
+  const decodedSlug = decodeURIComponent(slug);
+  if (decodedSlug.endsWith('.md') || decodedSlug.endsWith('.excalidraw')) {
+    return path.join(notesBase, decodedSlug);
+  }
+  return path.join(notesBase, `${decodedSlug}.md`);
+}
+
 export async function getNoteContent(slug: string): Promise<string> {
   try {
     const notesBase = getNotesPath();
-    const decodedSlug = decodeURIComponent(slug);
-    const filePath = path.join(notesBase, `${decodedSlug}.md`);
+    const filePath = getFilePathFromSlug(notesBase, slug);
     const content = await fs.readFile(filePath, 'utf-8');
     return content;
   } catch (error) {
@@ -109,8 +117,7 @@ export async function getNoteContent(slug: string): Promise<string> {
 export async function saveNote(slug: string, content: string): Promise<void> {
   try {
     const notesBase = getNotesPath();
-    const decodedSlug = decodeURIComponent(slug);
-    const filePath = path.join(notesBase, `${decodedSlug}.md`);
+    const filePath = getFilePathFromSlug(notesBase, slug);
     
     // Ensure directory exists
     await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -123,8 +130,7 @@ export async function saveNote(slug: string, content: string): Promise<void> {
 
 export async function deleteFile(slug: string): Promise<void> {
   const notesBase = getNotesPath();
-  const decodedSlug = decodeURIComponent(slug);
-  const filePath = path.join(notesBase, `${decodedSlug}.md`);
+  const filePath = getFilePathFromSlug(notesBase, slug);
   await fs.unlink(filePath);
 }
 
@@ -136,8 +142,8 @@ export async function deleteFolder(folderPath: string): Promise<void> {
 
 export async function moveItem(oldSlug: string, newSlug: string): Promise<void> {
   const notesBase = getNotesPath();
-  const oldPath = path.join(notesBase, `${decodeURIComponent(oldSlug)}.md`);
-  const newPath = path.join(notesBase, `${decodeURIComponent(newSlug)}.md`);
+  const oldPath = getFilePathFromSlug(notesBase, oldSlug);
+  const newPath = getFilePathFromSlug(notesBase, newSlug);
   await fs.mkdir(path.dirname(newPath), { recursive: true });
   await fs.rename(oldPath, newPath);
 }
