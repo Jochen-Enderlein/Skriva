@@ -569,33 +569,13 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
         <div className="flex flex-1 flex-col overflow-hidden bg-background">
           <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4 bg-background/50 backdrop-blur-md sticky top-0 z-20">
             <SidebarTrigger className="-ml-1 opacity-50 hover:opacity-100 transition-opacity text-foreground" />
-            <div className="flex items-center gap-2 px-2">
-              <span className="text-[13px] font-semibold tracking-tight text-foreground truncate max-w-[200px]">
-                {currentTitle}
-              </span>
-            </div>
-            <div className="h-4 w-px bg-border mx-1" />
-            
-            <div className="flex items-center gap-0.5 pr-2 border-r border-border">
-              <ThemeToggle />
-              <Link href="/tags">
-                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-50 hover:opacity-100 transition-opacity text-foreground">
-                  <Hash className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/graph">
-                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-50 hover:opacity-100 transition-opacity text-foreground">
-                  <Share2 className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-
             <div className="flex-1 flex items-center min-w-0">
               <TabList />
             </div>
             
             {/* Graph Toggle on the right side of tab bar */}
             <div className="ml-auto flex items-center pl-2 border-l border-border">
+              <ThemeToggle />
               <Button 
                 variant="ghost" 
                 size="icon" 

@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Skriva",
-  description: "A web-native Obsidian clone",
+  description: "A web-native MD Editor and more",
 };
 
 import { TabsProvider } from "@/components/tabs-context";
@@ -37,7 +37,6 @@ export default function RootLayout({
           attribute="class"
           defaultTheme="dark"
           enableSystem={false}
-          disableTransitionOnChange
         >
           <TabsProvider>
             <TooltipProvider>
