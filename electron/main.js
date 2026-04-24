@@ -21,7 +21,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    titleBarStyle: 'hiddenInset',
+    titleBarStyle: 'hidden',
+    trafficLightPosition: { x: 12, y: 16 }, // macOS: Position der Buttons anpassen
     backgroundColor: '#050505',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -78,6 +79,27 @@ ipcMain.handle('select-folder', async () => {
   });
   if (result.canceled) return null;
   return result.filePaths[0];
+});
+
+ipcMain.handle('minimize-window', () => {
+  console.log('Minimizing window...');
+  if (mainWindow) mainWindow.minimize();
+});
+
+ipcMain.handle('maximize-window', () => {
+  console.log('Maximizing/Unmaximizing window...');
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
+ipcMain.handle('close-window', () => {
+  console.log('Closing window...');
+  if (mainWindow) mainWindow.close();
 });
 
 ipcMain.handle('save-note-as-pdf', async (event, title) => {

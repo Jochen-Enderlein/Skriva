@@ -32,7 +32,10 @@ import {
   ChevronDown,
   Folder,
   Search,
-  Library
+  Library,
+  Minus,
+  Square,
+  X as CloseIcon
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -101,6 +104,10 @@ declare global {
       getVaultPath: () => Promise<string | null>;
       setVaultPath: (path: string) => Promise<boolean>;
       saveNoteAsPdf: (title: string) => Promise<boolean>;
+      minimizeWindow: () => Promise<void>;
+      maximizeWindow: () => Promise<void>;
+      closeWindow: () => Promise<void>;
+      platform: string;
     };
   }
 }
@@ -392,6 +399,52 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
     return 'Library';
   }, [pathname]);
 
+  const isMac = React.useMemo(() => {
+    return typeof window !== 'undefined' && window.electron?.platform === 'darwin';
+  }, []);
+
+  const WindowControls = () => {
+    if (typeof window === 'undefined' || !window.electron || isMac) return null;
+
+    return (
+      <div className="flex items-center no-drag ml-2 border-l border-border pl-2">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8 hover:bg-white/5 no-drag" 
+          onClick={() => {
+            console.log('Minimize clicked');
+            window.electron?.minimizeWindow();
+          }}
+        >
+          <Minus className="h-3 w-3 opacity-50" />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8 hover:bg-white/5 no-drag" 
+          onClick={() => {
+            console.log('Maximize clicked');
+            window.electron?.maximizeWindow();
+          }}
+        >
+          <Square className="h-3 w-3 opacity-50" />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8 hover:bg-red-500/20 hover:text-red-500 no-drag" 
+          onClick={() => {
+            console.log('Close clicked');
+            window.electron?.closeWindow();
+          }}
+        >
+          <CloseIcon className="h-3 w-3 opacity-50 hover:opacity-100" />
+        </Button>
+      </div>
+    );
+  };
+
   if (!vaultPath && !isVaultLoading) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-background text-foreground p-8">
@@ -556,6 +609,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
               >
                 <Share2 className="h-4 w-4" />
               </Button>
+              <WindowControls />
             </div>
           </header>
           <main className="flex-1 overflow-hidden">{children}</main>

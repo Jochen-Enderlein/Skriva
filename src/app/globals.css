@@ -121,6 +121,28 @@
     @apply bg-background text-foreground transition-colors duration-300;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
+
+  /* Electron Drag Region */
+  header,
+  [data-slot="sidebar-header"] {
+    -webkit-app-region: drag;
+  }
+
+  header button, 
+  header input,
+  header a,
+  header [role="button"],
+  [data-slot="sidebar-header"] button,
+  [data-slot="sidebar-header"] a,
+  [data-slot="sidebar-header"] input,
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Specific fix for TabList area */
+  [data-slot="sidebar-wrapper"] .flex-1.flex.items-center.min-w-0 > div {
+    -webkit-app-region: no-drag;
+  }
 }
 
 .prose {
