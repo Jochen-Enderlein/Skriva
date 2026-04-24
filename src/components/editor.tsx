@@ -42,9 +42,10 @@ interface EditorProps {
   allNotes: NoteMetadata[];
   graphData: any;
   backlinks: any[];
+  allTags: string[];
 }
 
-export function Editor({ slug, initialContent, allNotes, graphData, backlinks: initialBacklinks }: EditorProps) {
+export function Editor({ slug, initialContent, allNotes, graphData, backlinks: initialBacklinks, allTags }: EditorProps) {
   const [content, setContent] = useState(initialContent);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isGraphOpen, setIsGraphOpen] = useState(false);
@@ -140,15 +141,6 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
     });
     view.focus();
   };
-
-  const allTags = useMemo(() => {
-    const tags = new Set<string>();
-    allNotes.forEach(note => {
-      const noteTags = note.title.match(/#[a-zA-Z0-9_]+/g) || [];
-      noteTags.forEach(t => tags.add(t.substring(1)));
-    });
-    return Array.from(tags).length ? Array.from(tags) : ['idea', 'todo', 'meeting', 'project', 'important'];
-  }, [allNotes]);
 
   const transparentTheme = EditorView.theme({
     "&": {

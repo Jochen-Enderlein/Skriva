@@ -1,4 +1,4 @@
-import { getNoteContent, getNotes, getBacklinks, getFolders, getGraphData } from "@/lib/notes";
+import { getNoteContent, getNotes, getBacklinks, getFolders, getGraphData, getTags } from "@/lib/notes";
 import { Editor } from "@/components/editor";
 import { LayoutWrapper } from "@/components/layout-wrapper";
 import { notFound } from "next/navigation";
@@ -23,6 +23,7 @@ export default async function NotePage({ params }: { params: Promise<{ slug: str
     const title = decodeURIComponent(slug).split('/').pop() || '';
     const backlinks = await getBacklinks(title);
     const graphData = await getGraphData();
+    const tags = await getTags();
     
     return (
       <LayoutWrapper notes={notes} folders={folders}>
@@ -32,6 +33,7 @@ export default async function NotePage({ params }: { params: Promise<{ slug: str
           allNotes={notes} 
           graphData={graphData} 
           backlinks={backlinks} 
+          allTags={tags.map(t => t.tag)}
         />
       </LayoutWrapper>
     );

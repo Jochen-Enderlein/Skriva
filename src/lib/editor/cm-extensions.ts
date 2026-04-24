@@ -95,15 +95,20 @@ export const autocompleteExtensions = (allTags: string[], allNotes: NoteMetadata
       (context: CompletionContext): CompletionResult | null => {
         let word = context.matchBefore(/#[a-zA-Z0-9_]*/);
         if (!word) return null;
+        if (word.from === word.to && !context.explicit) return null;
         
         // Ensure it's typed as a tag, not a heading (heading has space after #)
+        const charAfter = context.state.sliceDoc(word.to, word.to + 1);
+        if (charAfter === " ") return null;
+
         if (word.from === 0 || context.state.sliceDoc(word.from - 1, word.from).match(/\s/)) {
           return {
             from: word.from,
-            options: allTags.map(tag => ({
+            options: Array.from(new Set(allTags)).map(tag => ({
               label: `#${tag}`,
               type: "keyword",
-              apply: `#${tag} `
+              apply: `#${tag} `,
+              detail: "tag"
             }))
           };
         }

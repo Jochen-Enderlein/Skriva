@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "electron": "electron . --no-sandbox",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron . --no-sandbox\"",
+    "electron:dev": "rm -rf .next && concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron . --no-sandbox\"",
     "electron:build": "next build && electron-builder"
   },
   "build": {

@@ -261,3 +261,50 @@
   padding: 0 2px;
   border-radius: 2px;
 }
+
+/* CodeMirror Autocomplete - Shadcn Style */
+.cm-tooltip.cm-tooltip-autocomplete {
+  background-color: #0f0f0f !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.5) !important;
+  overflow: hidden !important;
+  min-width: 180px !important;
+  padding: 4px !important;
+  font-family: var(--font-sans) !important;
+}
+
+.cm-tooltip-autocomplete ul {
+  max-height: 300px !important;
+  scrollbar-width: none !important;
+}
+
+.cm-tooltip-autocomplete ul::-webkit-scrollbar {
+  display: none !important;
+}
+
+.cm-tooltip-autocomplete ul li {
+  padding: 6px 12px !important;
+  font-size: 13px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+}
+
+.cm-tooltip-autocomplete ul li[aria-selected] {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+}
+
+.cm-completionDetail {
+  font-size: 10px !important;
+  opacity: 0.4 !important;
+  margin-left: 8px !important;
+  font-style: italic !important;
+}
+
+.cm-completionMatchedText {
+  color: #3b82f6 !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+}
