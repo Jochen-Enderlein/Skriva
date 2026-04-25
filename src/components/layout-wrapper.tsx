@@ -33,6 +33,7 @@ import {
   Folder,
   Search,
   Library,
+  Info,
   Minus,
   Square,
   X as CloseIcon
@@ -68,7 +69,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ThemeToggle } from "./theme-toggle";
 import { useDebounce } from '@/hooks/use-debounce';
@@ -133,6 +133,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
   const [vaultPath, setVaultPath] = React.useState<string | null>(null);
   const [isVaultLoading, setIsVaultLoading] = React.useState(true);
   const [dragOverFolder, setDragOverFolder] = React.useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = React.useState(false);
 
   React.useEffect(() => {
     const loadVault = async () => {
@@ -491,7 +492,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                             <span className="truncate">{note.title}</span>
                           </SidebarMenuButton>
                           <DropdownMenu>
-                            <DropdownMenuTrigger render={<SidebarMenuAction render={<div />} showOnHover className="opacity-0 group-hover/note:opacity-100"><MoreHorizontal /></SidebarMenuAction>} />
+                            <DropdownMenuTrigger nativeButton={false} render={<SidebarMenuAction render={<div />} showOnHover className="opacity-0 group-hover/note:opacity-100"><MoreHorizontal /></SidebarMenuAction>} />
                             <DropdownMenuContent side="right" align="start" className="bg-popover border-border text-popover-foreground">
                               <DropdownMenuItem onClick={() => { setDialog({ type: 'rename', target: note.slug, itemType: 'note' }); setInputValue(note.title); }}>
                                 <Pencil className="mr-2 h-4 w-4" /> Rename
@@ -533,7 +534,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                     <span className="truncate">{note.title}</span>
                   </SidebarMenuButton>
                   <DropdownMenu>
-                    <DropdownMenuTrigger render={<SidebarMenuAction render={<div />} showOnHover className="opacity-0 group-hover/note:opacity-100"><MoreHorizontal /></SidebarMenuAction>} />
+                    <DropdownMenuTrigger nativeButton={false} render={<SidebarMenuAction render={<div />} showOnHover className="opacity-0 group-hover/note:opacity-100"><MoreHorizontal /></SidebarMenuAction>} />
                     <DropdownMenuContent side="right" align="start" className="bg-popover border-border text-popover-foreground">
                       <DropdownMenuItem onClick={() => { setDialog({ type: 'rename', target: note.slug, itemType: 'note' }); setInputValue(note.title); }}>
                         <Pencil className="mr-2 h-4 w-4" /> Rename
@@ -701,8 +702,11 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
         </DialogContent>
       </Dialog>
 
-      <div className="flex h-screen w-full overflow-hidden bg-background text-foreground font-sans">
-        <SidebarUI collapsible="offcanvas" className={cn("bg-sidebar", isMac && "pt-8")}>
+      <div className="flex h-screen w-full overflow-hidden bg-sidebar text-foreground font-sans">
+        <SidebarUI collapsible="offcanvas" className={cn("bg-sidebar border-none! shadow-none! [&>div]:border-none!", isMac && "pt-4")}>
+          {/* Header Spacer to align with main content card */}
+          <div className="h-12 shrink-0" />
+          
           <div className="px-3 py-4 group-data-[state=collapsed]:hidden">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -766,8 +770,13 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
 
               <Collapsible defaultOpen className="group/templates">
                 <SidebarGroup className="mt-auto">
-                  <SidebarGroupLabel asChild>
-                    <CollapsibleTrigger className="flex w-full items-center justify-between text-[10px] font-bold uppercase tracking-widest px-2 mb-1 group/tpl-label cursor-pointer hover:bg-accent/50 rounded transition-colors py-1">
+                  <SidebarGroupLabel render={
+                    <CollapsibleTrigger 
+                      render={<div />} 
+                      nativeButton={false}
+                      className="flex w-full items-center justify-between text-[10px] font-bold uppercase tracking-widest px-2 mb-1 group/tpl-label cursor-pointer hover:bg-accent/50 rounded transition-colors py-1"
+                    />
+                  }>
                       <div className="flex items-center gap-1.5">
                         <span className="opacity-50 group-hover/tpl-label:opacity-100 transition-opacity">Templates</span>
                         <ChevronDown className="h-3 w-3 opacity-50 transition-transform group-data-[state=closed]/templates:-rotate-90 group-hover/tpl-label:opacity-100 transition-opacity" />
@@ -782,7 +791,6 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                       >
                         <Plus className="h-3 w-3 text-sidebar-foreground" />
                       </button>
-                    </CollapsibleTrigger>
                   </SidebarGroupLabel>
                   <CollapsibleContent>
                     <SidebarGroupContent>
@@ -795,7 +803,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                                 <span className="truncate">{tpl.title}</span>
                               </SidebarMenuButton>
                               <DropdownMenu>
-                                <DropdownMenuTrigger render={<SidebarMenuAction render={<div />} showOnHover className="opacity-0 group-hover/tpl:opacity-100"><MoreHorizontal /></SidebarMenuAction>} />
+                                <DropdownMenuTrigger nativeButton={false} render={<SidebarMenuAction render={<div />} showOnHover className="opacity-0 group-hover/tpl:opacity-100"><MoreHorizontal /></SidebarMenuAction>} />
                                 <DropdownMenuContent side="right" align="start" className="bg-popover border-border text-popover-foreground">
                                   <DropdownMenuItem onClick={() => { setDialog({ type: 'rename', target: tpl.slug, itemType: 'note' }); setInputValue(tpl.title); }}>
                                     <Pencil className="mr-2 h-4 w-4" /> Rename
@@ -819,11 +827,15 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
 
               <Collapsible defaultOpen className="group/explore">
                 <SidebarGroup>
-                  <SidebarGroupLabel asChild>
-                    <CollapsibleTrigger className="flex w-full items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 mb-1 group/exp-label cursor-pointer hover:bg-accent/50 rounded transition-colors py-1">
+                  <SidebarGroupLabel render={
+                    <CollapsibleTrigger 
+                      render={<div />} 
+                      nativeButton={false}
+                      className="flex w-full items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 mb-1 group/exp-label cursor-pointer hover:bg-accent/50 rounded transition-colors py-1"
+                    />
+                  }>
                       <span className="opacity-50 group-hover/exp-label:opacity-100 transition-opacity">Explore</span>
                       <ChevronDown className="h-3 w-3 opacity-50 transition-transform group-data-[state=closed]/explore:-rotate-90 group-hover/exp-label:opacity-100 transition-opacity" />
-                    </CollapsibleTrigger>
                   </SidebarGroupLabel>
                   <CollapsibleContent>
                     <SidebarGroupContent>
@@ -852,32 +864,68 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
           </SidebarContent>
         </SidebarUI>
 
-        <div className="flex flex-1 flex-col overflow-hidden bg-background">
-          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4 bg-background/50 backdrop-blur-md sticky top-0 z-20">
-            <SidebarTrigger className={cn("-ml-1 opacity-50 hover:opacity-100 transition-all duration-300 text-foreground", isMac && "peer-data-[state=collapsed]:ml-16")} />
-            <div className="flex-1 flex items-center min-w-0">
+        <div className="flex flex-1 flex-col overflow-hidden bg-sidebar">
+          <header className="flex h-12 shrink-0 items-center gap-2 px-4 bg-transparent sticky top-0 z-20 no-print">
+            <div className={cn(
+              "flex-1 flex items-center min-w-0 transition-all duration-300",
+              isMac && "peer-data-[state=collapsed]:pl-16"
+            )}>
               <TabList />
             </div>
             
-            {/* Graph Toggle on the right side of tab bar */}
-            <div className="ml-auto flex items-center pl-2 border-l border-border">
-              <ThemeToggle />
+            <div className="ml-auto flex items-center pl-2 gap-1">
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={() => setIsGraphOpen(!isGraphOpen)}
-                className={cn(
-                  "h-8 w-8 transition-all",
-                  isGraphOpen ? "bg-primary/20 text-primary shadow-[0_0_10px_rgba(var(--primary),0.2)]" : "text-muted-foreground hover:text-foreground"
-                )}
-                title={isGraphOpen ? "Hide Local Graph" : "Show Local Graph"}
+                onClick={() => setHelpOpen(true)}
+                className="h-8 w-8 opacity-50 hover:opacity-100 transition-opacity"
+                title="Editor Shortcuts"
               >
-                <Share2 className="h-4 w-4" />
+                <Info className="h-4 w-4" />
               </Button>
+              <ThemeToggle />
               <WindowControls />
             </div>
           </header>
-          <main className="flex-1 overflow-hidden">{children}</main>
+
+          <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+            <DialogContent className="sm:max-w-[425px] bg-popover border-border text-popover-foreground">
+              <DialogHeader>
+                <DialogTitle>Editor Shortcuts</DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Use these shortcuts to write and organize your notes faster.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4 space-y-4 text-sm">
+                <div className="grid grid-cols-[80px_1fr] gap-2 items-center border-b border-border pb-3">
+                  <kbd className="px-2 py-1 bg-muted rounded border border-border text-center font-mono font-bold text-primary">[[</kbd>
+                  <span>Wiki-Links: Connect to another note</span>
+                </div>
+                <div className="grid grid-cols-[80px_1fr] gap-2 items-center border-b border-border pb-3">
+                  <kbd className="px-2 py-1 bg-muted rounded border border-border text-center font-mono font-bold text-primary">#</kbd>
+                  <span>Tags: Categorize your notes</span>
+                </div>
+                <div className="grid grid-cols-[80px_1fr] gap-2 items-center border-b border-border pb-3">
+                  <kbd className="px-2 py-1 bg-muted rounded border border-border text-center font-mono font-bold text-primary">@</kbd>
+                  <span>Mentions: Reference people</span>
+                </div>
+                <div className="grid grid-cols-[80px_1fr] gap-2 items-center border-b border-border pb-3">
+                  <kbd className="px-2 py-1 bg-muted rounded border border-border text-center font-mono font-bold text-primary">/</kbd>
+                  <span>Slash Commands: Quick formatting & blocks</span>
+                </div>
+                <div className="grid grid-cols-[80px_1fr] gap-2 items-center">
+                  <kbd className="px-2 py-1 bg-muted rounded border border-border text-center font-mono font-bold text-primary">::</kbd>
+                  <span>Templates: Insert reusable snippets</span>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={() => setHelpOpen(false)}>Got it</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <main className="flex-1 overflow-hidden p-2 md:p-4 md:pt-0 relative">
+            {children}
+          </main>
         </div>
       </div>
       </DropZone>

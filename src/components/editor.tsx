@@ -37,8 +37,12 @@ import { EditorView } from '@codemirror/view';
 import { blockIconGutter, autocompleteExtensions } from '@/lib/editor/cm-extensions';
 import { MiniGraphView } from './mini-graph-view';
 import { cn } from '@/lib/utils';
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { ContentCard } from "./content-card";
+import { SidebarTriggerInternal } from "./sidebar-trigger-internal";
 
 interface EditorProps {
   slug: string;
@@ -339,171 +343,188 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
   );
 
   return (
-    <div className="relative w-full h-full flex flex-col xl:flex-row overflow-hidden">
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        {/* Fixed Toolbar Container */}
-        <div className="flex-none flex flex-col items-center pt-4 z-30 mb-6 no-print">
-          <div className="flex items-center gap-4 bg-popover/80 backdrop-blur-xl border border-border p-1.5 rounded-full shadow-2xl transition-all">
-            {!isExcalidraw && (
-              <div className="flex items-center gap-2 px-3 border-r border-border mr-1">
-                <Switch 
-                  id="read-mode" 
-                  checked={isReadOnly} 
-                  onCheckedChange={setIsReadOnly}
-                />
-                <Label htmlFor="read-mode" className="text-[10px] uppercase tracking-widest font-bold opacity-50 cursor-pointer select-none">
-                  {isReadOnly ? 'View' : 'Edit'}
-                </Label>
-              </div>
+    <div className="flex h-full w-full gap-2 md:gap-4 overflow-hidden">
+      <ContentCard className="flex-1">
+        <SidebarTriggerInternal />
+
+        <div className="absolute top-3 right-3 z-50 flex items-center gap-2 no-print transition-all duration-300">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setIsGraphOpen(!isGraphOpen)}
+            className={cn(
+              "h-8 w-8 transition-all rounded-xl",
+              isGraphOpen ? "bg-primary/20 text-primary opacity-100 shadow-[0_0_10px_rgba(var(--primary),0.2)]" : "text-foreground opacity-30 hover:opacity-100 hover:bg-accent"
             )}
-            
-            <div className="flex items-center gap-1 pr-2">
-              {!isExcalidraw ? (
-                <>
-                  <FormatButton onClick={() => insertFormat('# ')} icon={Heading1} title="Heading 1" />
-                  <FormatButton onClick={() => insertFormat('## ')} icon={Heading2} title="Heading 2" />
-                  <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
-                  <FormatButton onClick={() => insertFormat('**', '**')} icon={Bold} title="Bold" />
-                  <FormatButton onClick={() => insertFormat('*', '*')} icon={Italic} title="Italic" />
-                  <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
-                  <FormatButton onClick={() => insertFormat('- ')} icon={ListIcon} title="Bullet List" />
-                  <FormatButton onClick={() => insertFormat('```\n', '\n```')} icon={Code} title="Code Block" />
-                  <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
-                  <FormatButton 
-                    onClick={() => insertFormat('\n| Header | Header | Header |\n|--------|--------|--------|\n| Cell   | Cell   | Cell   |\n')} 
-                    icon={TableIcon} 
-                    title="Insert Table" 
+            title={isGraphOpen ? "Hide Local Graph" : "Show Local Graph"}
+          >
+            <Share2 className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+          {/* Fixed Toolbar Container */}
+          <div className="flex-none flex flex-col items-center pt-4 z-30 mb-6 no-print">
+            <div className="flex items-center gap-4 bg-popover/80 backdrop-blur-xl border border-border p-1.5 rounded-full shadow-2xl transition-all">
+              {!isExcalidraw && (
+                <div className="flex items-center gap-2 px-3 border-r border-border mr-1">
+                  <Switch 
+                    id="read-mode" 
+                    checked={isReadOnly} 
+                    onCheckedChange={setIsReadOnly}
                   />
-                  <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
-                </>
-              ) : (
-                <div className="px-3 text-[10px] uppercase tracking-widest font-bold opacity-50 select-none border-r border-border mr-2">
-                  Excalidraw
+                  <Label htmlFor="read-mode" className="text-[10px] uppercase tracking-widest font-bold opacity-50 cursor-pointer select-none">
+                    {isReadOnly ? 'View' : 'Edit'}
+                  </Label>
                 </div>
               )}
-              <button 
-                onClick={handleExportPdf}
-                className="p-1 hover:bg-accent rounded text-foreground active:scale-95 transition-all"
-                title="Export as PDF"
-              >
-                <FileDown className="w-4 h-4" />
-              </button>
+              
+              <div className="flex items-center gap-1 pr-2">
+                {!isExcalidraw ? (
+                  <>
+                    <FormatButton onClick={() => insertFormat('# ')} icon={Heading1} title="Heading 1" />
+                    <FormatButton onClick={() => insertFormat('## ')} icon={Heading2} title="Heading 2" />
+                    <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
+                    <FormatButton onClick={() => insertFormat('**', '**')} icon={Bold} title="Bold" />
+                    <FormatButton onClick={() => insertFormat('*', '*')} icon={Italic} title="Italic" />
+                    <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
+                    <FormatButton onClick={() => insertFormat('- ')} icon={ListIcon} title="Bullet List" />
+                    <FormatButton onClick={() => insertFormat('```\n', '\n```')} icon={Code} title="Code Block" />
+                    <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
+                    <FormatButton 
+                      onClick={() => insertFormat('\n| Header | Header | Header |\n|--------|--------|--------|\n| Cell   | Cell   | Cell   |\n')} 
+                      icon={TableIcon} 
+                      title="Insert Table" 
+                    />
+                    <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
+                  </>
+                ) : (
+                  <div className="px-3 text-[10px] uppercase tracking-widest font-bold opacity-50 select-none border-r border-border mr-2">
+                    Excalidraw
+                  </div>
+                )}
+                <button 
+                  onClick={handleExportPdf}
+                  className="p-1 hover:bg-accent rounded text-foreground active:scale-95 transition-all"
+                  title="Export as PDF"
+                >
+                  <FileDown className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth print:overflow-visible">
+            <div className={`mx-auto w-full print-content ${isExcalidraw ? 'max-w-none px-4 pb-4 print:p-0' : 'max-w-4xl px-6 py-12 pt-0 print:p-0'}`}>
+              <div className="w-full h-full relative">
+                {isExcalidraw ? (
+                  <ExcalidrawEditor key={slug} slug={slug} initialContent={initialContent} />
+                ) : isReadOnly ? (
+                  <div className="prose prose-sm dark:prose-invert max-w-none print:prose-headings:text-black print:prose-p:text-black">
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeRaw]}
+                      components={{
+                        div: ({ node, className, ...props }) => {
+                          if (className === 'excalidraw-transclusion') {
+                            const slug = props['data-slug' as keyof typeof props] as string;
+                            return <ExcalidrawEmbed slug={decodeURIComponent(slug)} />;
+                          }
+                          return <div className={className} {...props} />;
+                        },
+                        a: ({ node, ...props }) => {
+                          if (props.href?.startsWith('/note/')) {
+                            return <Link href={props.href}>{props.children}</Link>;
+                          }
+                          return <a {...props} target="_blank" rel="noopener noreferrer">{props.children}</a>;
+                        },
+                        code: ({ node, className, children, ...props }) => {
+                          const match = /language-(\w+)/.exec(className || '');
+                          const isBlock = match || String(children).includes('\n');
+                          return isBlock ? (
+                            <div className="relative group">
+                              <SyntaxHighlighter
+                                style={vscDarkPlus as any}
+                                language={match ? match[1] : 'typescript'}
+                                PreTag="div"
+                                customStyle={{ backgroundColor: 'transparent', padding: 0, margin: '1em 0' }}
+                                className="!bg-transparent text-[13px] no-print"
+                              >
+                                {String(children).replace(/\n$/, '')}
+                              </SyntaxHighlighter>
+                              <SyntaxHighlighter
+                                style={prism as any}
+                                language={match ? match[1] : 'typescript'}
+                                PreTag="div"
+                                customStyle={{ 
+                                  backgroundColor: '#f8f9fa', 
+                                  padding: '12px', 
+                                  margin: '1em 0', 
+                                  border: '1px solid #e1e4e8',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  lineHeight: '1.5'
+                                }}
+                                className="hidden print:block"
+                              >
+                                {String(children).replace(/\n$/, '')}
+                              </SyntaxHighlighter>
+                            </div>
+                          ) : (
+                            <code className="bg-white/10 px-1.5 py-0.5 rounded-md text-[0.9em] font-mono text-primary/90 print:bg-[#f3f4f6] print:text-[#eb5757] print:border print:border-[#e1e4e8] print:px-1 print:py-0" {...props}>
+                              {children}
+                            </code>
+                          );
+                        }
+                      }}
+                    >
+                      {viewContent}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="relative w-full h-[calc(100vh-250px)] rounded-md overflow-hidden bg-transparent">
+                    <CodeMirror
+                      ref={codeMirrorRef}
+                      value={content}
+                      height="100%"
+                      theme="dark"
+                      extensions={cmExtensions}
+                      onChange={(val) => setContent(val)}
+                      className="h-full text-base font-mono"
+                      basicSetup={{
+                        lineNumbers: true,
+                        foldGutter: true,
+                        highlightActiveLine: true,
+                        autocompletion: true,
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              <BacklinksSection />
             </div>
           </div>
         </div>
+      </ContentCard>
 
-        {/* Scrollable Content Area */}
-        <div className="flex-1 overflow-y-auto no-scrollbar scroll-smooth print:overflow-visible">
-          <div className={`mx-auto w-full print-content ${isExcalidraw ? 'max-w-none px-4 pb-4 print:p-0' : 'max-w-4xl px-6 py-12 pt-0 print:p-0'}`}>
-            <div className="w-full h-full relative">
-              {isExcalidraw ? (
-                <ExcalidrawEditor key={slug} slug={slug} initialContent={initialContent} />
-              ) : isReadOnly ? (
-                <div className="prose prose-sm dark:prose-invert max-w-none print:prose-headings:text-black print:prose-p:text-black">
-                  <ReactMarkdown 
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeRaw]}
-                    components={{
-                      div: ({ node, className, ...props }) => {
-                        if (className === 'excalidraw-transclusion') {
-                          const slug = props['data-slug' as keyof typeof props] as string;
-                          return <ExcalidrawEmbed slug={decodeURIComponent(slug)} />;
-                        }
-                        return <div className={className} {...props} />;
-                      },
-                      a: ({ node, ...props }) => {
-                        if (props.href?.startsWith('/note/')) {
-                          return <Link href={props.href}>{props.children}</Link>;
-                        }
-                        return <a {...props} target="_blank" rel="noopener noreferrer">{props.children}</a>;
-                      },
-                      code: ({ node, className, children, ...props }) => {
-                        const match = /language-(\w+)/.exec(className || '');
-                        const isBlock = match || String(children).includes('\n');
-                        return isBlock ? (
-                          <div className="relative group">
-                            <SyntaxHighlighter
-                              style={vscDarkPlus as any}
-                              language={match ? match[1] : 'typescript'}
-                              PreTag="div"
-                              customStyle={{ backgroundColor: 'transparent', padding: 0, margin: '1em 0' }}
-                              className="!bg-transparent text-[13px] no-print"
-                            >
-                              {String(children).replace(/\n$/, '')}
-                            </SyntaxHighlighter>
-                            <SyntaxHighlighter
-                              style={prism as any}
-                              language={match ? match[1] : 'typescript'}
-                              PreTag="div"
-                              customStyle={{ 
-                                backgroundColor: '#f8f9fa', 
-                                padding: '12px', 
-                                margin: '1em 0', 
-                                border: '1px solid #e1e4e8',
-                                borderRadius: '6px',
-                                fontSize: '11px',
-                                lineHeight: '1.5'
-                              }}
-                              className="hidden print:block"
-                            >
-                              {String(children).replace(/\n$/, '')}
-                            </SyntaxHighlighter>
-                          </div>
-                        ) : (
-                          <code className="bg-white/10 px-1.5 py-0.5 rounded-md text-[0.9em] font-mono text-primary/90 print:bg-[#f3f4f6] print:text-[#eb5757] print:border print:border-[#e1e4e8] print:px-1 print:py-0" {...props}>
-                            {children}
-                          </code>
-                        );
-                      }
-                    }}
-                  >
-                    {viewContent}
-                  </ReactMarkdown>
-                </div>
-              ) : (
-                <div className="relative w-full h-[calc(100vh-250px)] rounded-md overflow-hidden bg-transparent">
-                  <CodeMirror
-                    ref={codeMirrorRef}
-                    value={content}
-                    height="100%"
-                    theme="dark"
-                    extensions={cmExtensions}
-                    onChange={(val) => setContent(val)}
-                    className="h-full text-base font-mono"
-                    basicSetup={{
-                      lineNumbers: true,
-                      foldGutter: true,
-                      highlightActiveLine: true,
-                      autocompletion: true,
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-            <BacklinksSection />
-          </div>
-        </div>
-      </div>
-
-      {/* Collapsible Side Panel (Graph + ToC) */}
-      {isCompact ? (
-        <Sheet open={isGraphOpen} onOpenChange={setIsGraphOpen}>
-          <SheetContent side="right" className="w-[85vw] sm:w-[400px] p-0 border-l border-border bg-background/95 backdrop-blur-md">
-            <SheetHeader className="sr-only">
-              <SheetTitle>Graph and Table of Contents</SheetTitle>
-              <SheetDescription>View local graph and table of contents for this note.</SheetDescription>
-            </SheetHeader>
+      {/* Side Panel (Graph + ToC) - Separate Card or Flying Modal */}
+      {isGraphOpen && (
+        isCompact ? (
+          <Dialog open={isGraphOpen} onOpenChange={setIsGraphOpen}>
+            <DialogContent className="sm:max-w-[600px] h-[80vh] p-0 bg-background border-border overflow-hidden flex flex-col">
+              <DialogHeader className="sr-only">
+                <DialogTitle>Graph and Table of Contents</DialogTitle>
+                <DialogDescription>View local graph and table of contents for this note.</DialogDescription>
+              </DialogHeader>
+              {renderSidePanelContent()}
+            </DialogContent>
+          </Dialog>
+        ) : (
+          <ContentCard className="w-[400px] flex-none">
             {renderSidePanelContent()}
-          </SheetContent>
-        </Sheet>
-      ) : (
-        <div 
-          className={`hidden xl:block transition-all duration-300 ease-in-out border-l border-border bg-background/50 backdrop-blur-sm overflow-hidden h-full no-print ${
-            isGraphOpen ? 'w-[400px] opacity-100' : 'w-0 opacity-0 border-l-0'
-          }`}
-        >
-          {renderSidePanelContent()}
-        </div>
+          </ContentCard>
+        )
       )}
     </div>
   );
