@@ -42,6 +42,13 @@ function createWindow() {
   
   mainWindow.loadURL(url);
 
+  // Prevent default navigation when dropping files on the window
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    if (navigationUrl.startsWith('file://')) {
+      event.preventDefault();
+    }
+  });
+
   /* 
   if (isDev) {
     mainWindow.webContents.openDevTools();

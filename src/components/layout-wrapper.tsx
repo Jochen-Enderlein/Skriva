@@ -45,6 +45,7 @@ import {
   deleteFileAction, 
   deleteFolderAction,
   moveItemAction,
+  moveFolderAction,
   searchNotesAction,
   setVaultPathAction,
   getVaultPathAction
@@ -71,6 +72,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { useDebounce } from '@/hooks/use-debounce';
 import { useTabs } from "./tabs-context";
 import { cn } from "@/lib/utils";
+import { DropZone } from "./drop-zone";
 
 interface LayoutWrapperProps {
   notes: NoteMetadata[];
@@ -125,6 +127,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
   const [isPending, setIsPending] = React.useState(false);
   const [vaultPath, setVaultPath] = React.useState<string | null>(null);
   const [isVaultLoading, setIsVaultLoading] = React.useState(true);
+  const [dragOverFolder, setDragOverFolder] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const loadVault = async () => {
@@ -270,12 +273,91 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
     }
   };
 
+  const handleFolderDrop = async (e: React.DragEvent, targetFolder: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverFolder(null);
+    
+    // Check for internal move first
+    const internalMoveData = e.dataTransfer.getData('application/x-skriva-item');
+    if (internalMoveData) {
+      const { path: sourcePath, type } = JSON.parse(internalMoveData);
+      
+      // Prevent dropping onto itself or its own parent
+      const sourceName = sourcePath.split('/').pop();
+      const newPath = targetFolder ? `${targetFolder}/${sourceName}` : sourceName;
+      
+      if (sourcePath === newPath || sourcePath === targetFolder) return;
+      
+      // Prevent moving a folder into its own subfolder
+      if (type === 'folder' && targetFolder.startsWith(`${sourcePath}/`)) {
+        toast.error("Cannot move a folder into its own subfolder");
+        return;
+      }
+
+      const toastId = toast.loading(`Moving ${sourceName}...`);
+      try {
+        const res = type === 'folder' 
+          ? await moveFolderAction(sourcePath, newPath)
+          : await moveItemAction(sourcePath, newPath);
+          
+        if (res.success) {
+          toast.success(`Moved to ${targetFolder || 'Root'}`, { id: toastId });
+          router.refresh();
+        } else {
+          toast.error(res.error || "Move failed", { id: toastId });
+        }
+      } catch (error) {
+        toast.error("Move error", { id: toastId });
+      }
+      return;
+    }
+
+    // Fallback to external file import
+    const files = Array.from(e.dataTransfer.files) as (File & { path?: string })[];
+    if (files.length === 0) return;
+
+    const paths = files.map(f => f.path).filter((p): p is string => !!p);
+    if (paths.length === 0) {
+      toast.error("Could not determine file paths.");
+      return;
+    }
+
+    const toastId = toast.loading(`Importing to ${targetFolder || 'Root'}...`);
+    try {
+      const res = await importItemsAction(paths, targetFolder);
+      if (res.success) {
+        toast.success(`Imported to ${targetFolder || 'Root'}`, { id: toastId });
+        router.refresh();
+      } else {
+        toast.error(res.error || "Import failed", { id: toastId });
+      }
+    } catch (error) {
+      toast.error("Import error", { id: toastId });
+    }
+  };
+
   const renderTree = (node: TreeNode) => {
     const isRoot = node.name === 'Root';
     return (
       <React.Fragment key={node.path || 'root'}>
         {!isRoot && (
-          <SidebarMenuItem>
+          <SidebarMenuItem 
+            draggable
+            onDragStart={(e) => {
+              e.stopPropagation();
+              e.dataTransfer.setData('application/x-skriva-item', JSON.stringify({ path: node.path, type: 'folder' }));
+              e.dataTransfer.effectAllowed = 'move';
+            }}
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverFolder(node.path); }}
+            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverFolder(null); }}
+            onDrop={(e) => handleFolderDrop(e, node.path)}
+            className={cn(
+              "transition-colors rounded-md cursor-grab active:cursor-grabbing",
+              dragOverFolder === node.path && "bg-primary/20 ring-1 ring-primary"
+            )}
+          >
             <Collapsible defaultOpen className="group/collapsible">
               <div>
                 <div className="flex items-center group/item pr-2">
@@ -332,7 +414,16 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                   <SidebarMenuSub className="ml-4 border-l border-border pl-2 min-w-max">
                     {Object.values(node.children).map(child => renderTree(child))}
                     {node.notes.map(note => (
-                      <SidebarMenuItem key={note.slug}>
+                      <SidebarMenuItem 
+                        key={note.slug}
+                        draggable
+                        onDragStart={(e) => {
+                          e.stopPropagation();
+                          e.dataTransfer.setData('application/x-skriva-item', JSON.stringify({ path: note.slug, type: 'note' }));
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        className="cursor-grab active:cursor-grabbing"
+                      >
                         <div className="flex items-center group/note pr-2">
                           <SidebarMenuButton render={<Link href={`/note/${note.slug}`} />} isActive={pathname === `/note/${note.slug}`} className="flex-1">
                             <FileText className="h-3.5 w-3.5 opacity-40" />
@@ -362,7 +453,16 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
           <>
             {Object.values(node.children).map(child => renderTree(child))}
             {node.notes.map(note => (
-              <SidebarMenuItem key={note.slug}>
+              <SidebarMenuItem 
+                key={note.slug}
+                draggable
+                onDragStart={(e) => {
+                  e.stopPropagation();
+                  e.dataTransfer.setData('application/x-skriva-item', JSON.stringify({ path: note.slug, type: 'note' }));
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                className="cursor-grab active:cursor-grabbing"
+              >
                  <div className="flex items-center group/note pr-2">
                   <SidebarMenuButton render={<Link href={`/note/${note.slug}`} />} isActive={pathname === `/note/${note.slug}`} className="flex-1">
                     <FileText className="h-3.5 w-3.5 opacity-40" />
@@ -464,7 +564,8 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
 
   return (
     <SidebarProvider>
-      <CommandPalette notes={notes} />
+      <DropZone>
+        <CommandPalette notes={notes} />
       <Dialog open={dialog.type !== null} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent className="sm:max-w-[425px] bg-popover border-border text-popover-foreground">
           <DialogHeader>
@@ -523,7 +624,18 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
             <div className="min-w-max flex flex-col min-h-full">
               {!isSearching ? (
                 <SidebarGroup className="flex-1">
-                  <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-widest opacity-30 px-2 mb-1">Library</SidebarGroupLabel>
+                  <SidebarGroupLabel 
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverFolder('root'); }}
+                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverFolder(null); }}
+                    onDrop={(e) => handleFolderDrop(e, '')}
+                    className={cn(
+                      "text-[10px] font-bold uppercase tracking-widest px-2 mb-1 transition-all rounded py-1",
+                      dragOverFolder === 'root' ? "bg-primary/20 text-primary ring-1 ring-primary" : "opacity-30"
+                    )}
+                  >
+                    Library
+                  </SidebarGroupLabel>
                   <SidebarGroupContent><SidebarMenu>{renderTree(fullTree)}</SidebarMenu></SidebarGroupContent>
                 </SidebarGroup>
               ) : (
@@ -594,6 +706,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
           <main className="flex-1 overflow-hidden">{children}</main>
         </div>
       </div>
+      </DropZone>
     </SidebarProvider>
   );
 }

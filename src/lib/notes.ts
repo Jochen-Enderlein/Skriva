@@ -148,6 +148,14 @@ export async function moveItem(oldSlug: string, newSlug: string): Promise<void> 
   await fs.rename(oldPath, newPath);
 }
 
+export async function moveFolder(oldPath: string, newPath: string): Promise<void> {
+  const notesBase = getNotesPath();
+  const fullOldPath = path.join(notesBase, oldPath);
+  const fullNewPath = path.join(notesBase, newPath);
+  await fs.mkdir(path.dirname(fullNewPath), { recursive: true });
+  await fs.rename(fullOldPath, fullNewPath);
+}
+
 export async function searchNotes(query: string): Promise<{ slug: string; title: string; snippet: string }[]> {
   const notes = await getNotes();
   const results: { slug: string; title: string; snippet: string }[] = [];

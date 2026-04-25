@@ -5,6 +5,7 @@ import {
   deleteFile as deleteFileFromFs, 
   deleteFolder as deleteFolderFromFs,
   moveItem as moveItemInFs,
+  moveFolder as moveFolderInFs,
   searchNotes,
   getStoredVaultPath,
   setStoredVaultPath,
@@ -107,6 +108,16 @@ export async function moveItemAction(oldSlug: string, newSlug: string) {
   }
 }
 
+export async function moveFolderAction(oldPath: string, newPath: string) {
+  try {
+    await moveFolderInFs(oldPath, newPath);
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: 'Failed to move folder' };
+  }
+}
+
 export async function searchNotesAction(query: string) {
   try {
     const results = await searchNotes(query);
@@ -125,4 +136,27 @@ export async function setVaultPathAction(vaultPath: string) {
   setStoredVaultPath(vaultPath);
   revalidatePath('/');
   return { success: true };
+}
+
+export async function importItemsAction(paths: string[], targetFolder: string = '') {
+  try {
+    const { getStoredVaultPath } = await import('@/lib/notes');
+    const vaultPath = getStoredVaultPath() || path.join(process.cwd(), 'assets/notes');
+    const destBase = path.join(vaultPath, targetFolder);
+
+    for (const sourcePath of paths) {
+      const fileName = path.basename(sourcePath);
+      const destPath = path.join(destBase, fileName);
+      
+      // Use fs.cp for recursive copy (Node.js 16.7.0+)
+      // If it fails, it might be an older Node version, but usually in Electron it's fine.
+      await fs.cp(sourcePath, destPath, { recursive: true });
+    }
+
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error('Action error importing items:', error);
+    return { success: false, error: 'Failed to import items' };
+  }
 }
