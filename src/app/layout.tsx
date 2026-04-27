@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Skriva",
+  title: "Feli.md",
   description: "A web-native MD Editor and more",
 };
 

@@ -139,7 +139,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
 
   // Load folder configs
   React.useEffect(() => {
-    const saved = localStorage.getItem('skriva_folder_configs');
+    const saved = localStorage.getItem('feli_folder_configs');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -160,7 +160,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
   const saveFolderConfig = (path: string, color: string, mode: 'text' | 'bg') => {
     const newConfigs = { ...folderConfigs, [path]: { color, mode } };
     setFolderConfigs(newConfigs);
-    localStorage.setItem('skriva_folder_configs', JSON.stringify(newConfigs));
+    localStorage.setItem('feli_folder_configs', JSON.stringify(newConfigs));
   };
 
   React.useEffect(() => {
@@ -369,7 +369,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
     setDragOverFolder(null);
     
     // Check for internal move first
-    const internalMoveData = e.dataTransfer.getData('application/x-skriva-item');
+    const internalMoveData = e.dataTransfer.getData('application/x-feli-item');
     if (internalMoveData) {
       const { path: sourcePath, type } = JSON.parse(internalMoveData);
       
@@ -470,7 +470,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
             draggable
             onDragStart={(e) => {
               e.stopPropagation();
-              e.dataTransfer.setData('application/x-skriva-item', JSON.stringify({ path: node.path, type: 'folder' }));
+              e.dataTransfer.setData('application/x-feli-item', JSON.stringify({ path: node.path, type: 'folder' }));
               e.dataTransfer.effectAllowed = 'move';
             }}
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -552,7 +552,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                         draggable
                         onDragStart={(e) => {
                           e.stopPropagation();
-                          e.dataTransfer.setData('application/x-skriva-item', JSON.stringify({ path: note.slug, type: 'note' }));
+                          e.dataTransfer.setData('application/x-feli-item', JSON.stringify({ path: note.slug, type: 'note' }));
                           e.dataTransfer.effectAllowed = 'move';
                         }}
                         className="cursor-grab active:cursor-grabbing"
@@ -594,7 +594,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                 draggable
                 onDragStart={(e) => {
                   e.stopPropagation();
-                  e.dataTransfer.setData('application/x-skriva-item', JSON.stringify({ path: note.slug, type: 'note' }));
+                  e.dataTransfer.setData('application/x-feli-item', JSON.stringify({ path: note.slug, type: 'note' }));
                   e.dataTransfer.effectAllowed = 'move';
                 }}
                 className="cursor-grab active:cursor-grabbing"
@@ -690,7 +690,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
       <div className="h-screen w-full flex items-center justify-center bg-background text-foreground p-8">
         <div className="max-w-md w-full space-y-8 text-center">
           <div className="space-y-2">
-            <h1 className="text-4xl font-bold tracking-tighter">Welcome to Skriva</h1>
+            <h1 className="text-4xl font-bold tracking-tighter">Welcome to Feli.md</h1>
             <p className="text-muted-foreground">Select a folder to use as your knowledge base.</p>
           </div>
           <Button onClick={handleSelectVault} size="lg" className="w-full h-12">
@@ -824,7 +824,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                   const newConfigs = { ...folderConfigs };
                   delete newConfigs[dialog.target!];
                   setFolderConfigs(newConfigs);
-                  localStorage.setItem('skriva_folder_configs', JSON.stringify(newConfigs));
+                  localStorage.setItem('feli_folder_configs', JSON.stringify(newConfigs));
                   closeDialog();
                 }}
               >
@@ -856,10 +856,10 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
               <Input placeholder="Search content..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-8 pl-8 bg-background border-border text-[12px] focus-visible:ring-ring" />
             </div>
           </div>
-          <SidebarContent className="no-scrollbar overflow-x-hidden">
-            <div className="flex flex-col min-h-full w-full overflow-hidden">
+          <SidebarContent className="no-scrollbar overflow-hidden">
+            <div className="flex flex-col h-full w-full overflow-hidden">
               {!isSearching ? (
-                <SidebarGroup className="flex-1">
+                <SidebarGroup className="flex-1 min-h-0 flex flex-col">
                   <SidebarGroupLabel 
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                     onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverFolder('root'); }}
@@ -890,14 +890,14 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                       </button>
                     </div>
                   </SidebarGroupLabel>
-                  <SidebarGroupContent className="overflow-x-auto no-scrollbar">
+                  <SidebarGroupContent className="flex-1 overflow-y-auto no-scrollbar">
                     <SidebarMenu className="min-w-max">{renderTree(fullTree)}</SidebarMenu>
                   </SidebarGroupContent>
                 </SidebarGroup>
               ) : (
-                <SidebarGroup className="flex-1">
+                <SidebarGroup className="flex-1 min-h-0 flex flex-col">
                   <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-widest opacity-30 px-2 mb-1">Results</SidebarGroupLabel>
-                  <SidebarGroupContent className="overflow-x-auto no-scrollbar">
+                  <SidebarGroupContent className="flex-1 overflow-y-auto no-scrollbar">
                     <SidebarMenu className="min-w-max">
                       {searchResults.map(result => (
                         <SidebarMenuItem key={result.slug}>

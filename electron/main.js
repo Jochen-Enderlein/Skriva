@@ -128,7 +128,7 @@ ipcMain.handle('save-note-as-pdf', async (event, title) => {
       displayHeaderFooter: true,
       headerTemplate: `
         <div style="font-size: 9px; width: 100%; margin: 0 1cm; display: flex; justify-content: space-between; font-family: sans-serif; color: #888;">
-          <span>Skriva</span>
+          <span>Feli.md</span>
           <span>${title || 'Note'}</span>
         </div>`,
       footerTemplate: `

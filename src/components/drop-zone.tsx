@@ -18,7 +18,7 @@ export function DropZone({ children }: DropZoneProps) {
 
   const handleDragEnter = (e: React.DragEvent) => {
     // Ignore internal drags
-    if (e.dataTransfer.types.includes('application/x-skriva-item')) return;
+    if (e.dataTransfer.types.includes('application/x-feli-item')) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -30,7 +30,7 @@ export function DropZone({ children }: DropZoneProps) {
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('application/x-skriva-item')) return;
+    if (e.dataTransfer.types.includes('application/x-feli-item')) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -43,7 +43,7 @@ export function DropZone({ children }: DropZoneProps) {
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('application/x-skriva-item')) return;
+    if (e.dataTransfer.types.includes('application/x-feli-item')) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -52,7 +52,7 @@ export function DropZone({ children }: DropZoneProps) {
   };
 
   const handleDrop = async (e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('application/x-skriva-item')) return;
+    if (e.dataTransfer.types.includes('application/x-feli-item')) return;
 
     e.preventDefault();
     e.stopPropagation();
