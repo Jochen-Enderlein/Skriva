@@ -336,7 +336,7 @@
 
   /* Standard page margins for marginType: 'none' */
   @page {
-    margin: 1.5cm !important;
+    margin: 1cm !important;
     size: A4;
   }
 
@@ -382,10 +382,10 @@
     display: none !important;
   }
 
-  /* Force content area to be full width with generous padding */
+  /* Force content area to be full width */
   main {
     margin: 0 !important;
-    padding: 8mm 15mm !important; /* Slightly reduced: 0.8cm top/bottom, 1.5cm sides */
+    padding: 0 !important;
     width: 100% !important;
     max-width: none !important;
     background: white !important;
