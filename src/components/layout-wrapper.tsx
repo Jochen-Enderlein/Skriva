@@ -39,12 +39,19 @@ import {
   Square,
   X as CloseIcon,
   CatIcon,
-  PawPrint
+  PawPrint,
+  Calendar,
+  Shuffle,
+  AlertCircle,
+  CheckCircle2,
+  AlertTriangle
   } from "lucide-react";
   import Link from "next/link";
   import { usePathname, useRouter } from "next/navigation";
   import {
   createNoteAction,
+  createDailyNoteAction,
+  getRandomNoteAction,
   createFolderAction,
   deleteFileAction,
   deleteFolderAction,
@@ -59,7 +66,11 @@ import {
   import { toast } from "sonner";
   import ReactMarkdown from 'react-markdown';
   import remarkGfm from 'remark-gfm';
-  import rehypeRaw from 'rehype-raw';import {
+  import remarkMath from 'remark-math';
+  import rehypeRaw from 'rehype-raw';
+  import rehypeKatex from 'rehype-katex';
+  import 'katex/dist/katex.min.css';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -151,6 +162,29 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
       setIsReadmeOpen(true);
     } else {
       toast.error("Could not load README.md");
+    }
+  };
+
+  const handleDailyNote = async () => {
+    setIsPending(true);
+    const res = await createDailyNoteAction();
+    setIsPending(false);
+    if (res.success && res.slug) {
+      router.push(`/note/${res.slug}`);
+      if (!res.alreadyExists) {
+        toast.success("Daily note created in Inbox");
+      }
+    } else {
+      toast.error(res.error || "Failed to create daily note");
+    }
+  };
+
+  const handleRandomNote = async () => {
+    const res = await getRandomNoteAction();
+    if (res.success && res.slug) {
+      router.push(`/note/${res.slug}`);
+    } else {
+      toast.error(res.error || "Could not find a note");
     }
   };
 
@@ -1016,6 +1050,27 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                     <SidebarGroupContent>
                       <SidebarMenu>
                         <SidebarMenuItem>
+                          <SidebarMenuButton 
+                            onClick={handleDailyNote} 
+                            disabled={isPending}
+                            tooltip="Daily Note" 
+                            className="hover:bg-accent"
+                          >
+                            <Calendar className="h-4 w-4 opacity-50 text-primary" />
+                            <span className="font-medium text-[13px]">Daily Note</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                          <SidebarMenuButton 
+                            onClick={handleRandomNote} 
+                            tooltip="Random Note" 
+                            className="hover:bg-accent"
+                          >
+                            <Shuffle className="h-4 w-4 opacity-50 text-amber-500" />
+                            <span className="font-medium text-[13px]">Random Note</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
                           <SidebarMenuButton render={<Link href="/tags" className="text-inherit!" />} isActive={pathname === '/tags'} tooltip="Tags" className="hover:bg-accent data-[active=true]:bg-accent">
                             <Hash className="h-4 w-4 opacity-50" /><span className="font-medium text-[13px]">Tags</span>
                           </SidebarMenuButton>
@@ -1040,12 +1095,12 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
         </SidebarUI>
 
         <div className="flex flex-1 flex-col overflow-hidden bg-sidebar">
-          <header className="flex h-12 shrink-0 items-center gap-2 px-4 bg-transparent sticky top-0 z-20 no-print">
-            <div className="flex-1 flex items-center min-w-0">
+          <header className="flex h-10 shrink-0 items-center gap-2 px-4 bg-sidebar sticky top-0 z-20 no-print">
+            <div className="flex-1 flex items-center min-w-0 h-full">
               <TabList />
             </div>
             
-            <div className="ml-auto flex items-center pl-2 gap-1">
+            <div className="ml-auto flex items-center pl-2 gap-1 h-full">
               {!isMac && <div className="w-12 h-8 shrink-0 no-print" />}
               <Button 
                 variant="ghost" 
@@ -1079,7 +1134,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                 </DialogTitle>
               </DialogHeader>
               <div className="flex-1 overflow-y-auto px-6 py-4 prose prose-invert prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>
                   {readmeContent}
                 </ReactMarkdown>
               </div>
@@ -1114,9 +1169,21 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                   <kbd className="px-2 py-1 bg-muted rounded border border-border text-center font-mono font-bold text-primary">/</kbd>
                   <span>Slash Commands: Quick formatting & blocks</span>
                 </div>
-                <div className="grid grid-cols-[80px_1fr] gap-2 items-center">
+                <div className="grid grid-cols-[80px_1fr] gap-2 items-center border-b border-border pb-3">
                   <kbd className="px-2 py-1 bg-muted rounded border border-border text-center font-mono font-bold text-primary">::</kbd>
                   <span>Templates: Insert reusable snippets</span>
+                </div>
+                <div className="grid grid-cols-[80px_1fr] gap-2 items-center border-b border-border pb-3">
+                  <kbd className="px-2 py-1 bg-muted rounded border border-border text-center font-mono font-bold text-primary">$$</kbd>
+                  <span>LaTeX: Formulas and mathematical notation</span>
+                </div>
+                <div className="grid grid-cols-[80px_1fr] gap-2 items-center border-b border-border pb-3">
+                  <kbd className="px-2 py-1 bg-muted rounded border border-border text-center font-mono font-bold text-primary">\</kbd>
+                  <span>Math Symbols: Autocomplete for LaTeX commands</span>
+                </div>
+                <div className="grid grid-cols-[80px_1fr] gap-2 items-center">
+                  <kbd className="px-2 py-1 bg-muted rounded border border-border text-center font-mono font-bold text-primary">&gt; [!info]</kbd>
+                  <span>Callouts: Colored info/warning boxes</span>
                 </div>
               </div>
               <DialogFooter>
@@ -1124,7 +1191,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <main className="flex-1 overflow-hidden p-2 md:p-4 md:pt-0 relative">
+          <main className="flex-1 overflow-hidden p-2 md:p-4 md:pt-0 mt-0 relative">
             {children}
           </main>
         </div>

@@ -82,6 +82,35 @@ export async function createNoteAction(title: string, folder: string = '', templ
   }
 }
 
+export async function createDailyNoteAction() {
+  try {
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const title = dateStr;
+    const folder = 'Inbox';
+    const slug = path.join(folder, title);
+    
+    // Check if it already exists
+    const notesBase = getStoredVaultPath() || path.join(process.cwd(), 'assets/notes');
+    const filePath = path.join(notesBase, `${slug}.md`);
+    
+    try {
+      await fs.access(filePath);
+      // Already exists, just return the slug
+      return { success: true, slug, alreadyExists: true };
+    } catch {
+      // Doesn't exist, create it
+      const content = `# ${title}\n\n`;
+      await saveNoteToFs(slug, content);
+      revalidatePath('/');
+      return { success: true, slug, alreadyExists: false };
+    }
+  } catch (error) {
+    console.error('Action error creating daily note:', error);
+    return { success: false, error: 'Failed to create daily note' };
+  }
+}
+
 export async function createFolderAction(folderName: string, parentFolder: string = '') {
   try {
     const { getStoredVaultPath } = await import('@/lib/notes');
@@ -187,5 +216,17 @@ export async function getReadmeAction() {
   } catch (error) {
     console.error('Action error getting README:', error);
     return { success: false, error: 'Failed to get README content' };
+  }
+}
+
+export async function getRandomNoteAction() {
+  try {
+    const { getNotes } = await import('@/lib/notes');
+    const notes = await getNotes();
+    if (notes.length === 0) return { success: false, error: 'No notes found' };
+    const randomIndex = Math.floor(Math.random() * notes.length);
+    return { success: true, slug: notes[randomIndex].slug };
+  } catch (error) {
+    return { success: false, error: 'Failed to pick random note' };
   }
 }

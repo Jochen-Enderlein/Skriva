@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { saveNoteAction } from '@/app/actions';
 import { toast } from 'sonner';
@@ -11,7 +12,10 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 import rehypeRaw from 'rehype-raw';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import Link from 'next/link';
 import { 
   Bold, 
@@ -24,10 +28,84 @@ import {
   Share2,
   FileDown,
   Plus,
-  Trash2
+  Trash2,
+  Info,
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
+import mermaid from 'mermaid';
+
+function Mermaid({ chart }: { chart: string }) {
+  const [svg, setSvg] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
+  const [isRendering, setIsRendering] = useState(true);
+  const id = React.useId().replace(/:/g, '');
+
+  useEffect(() => {
+    let isMounted = true;
+    
+    const renderChart = async () => {
+      if (!chart) {
+        setIsRendering(false);
+        return;
+      }
+      
+      try {
+        setIsRendering(true);
+        setError(null);
+        
+        // Ensure mermaid is initialized
+        const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: isDark ? 'dark' : 'default',
+          securityLevel: 'loose',
+          fontFamily: 'var(--font-geist-sans)',
+        });
+
+        // Use a unique ID for each render attempt
+        const renderId = `mermaid-svg-${id}-${Math.random().toString(36).substr(2, 9)}`;
+        const { svg: renderedSvg } = await mermaid.render(renderId, chart);
+        
+        if (isMounted) {
+          setSvg(renderedSvg);
+          setIsRendering(false);
+        }
+      } catch (err) {
+        console.error('Mermaid render error:', err);
+        if (isMounted) {
+          setError('Failed to render diagram');
+          setIsRendering(false);
+        }
+      }
+    };
+
+    renderChart();
+    return () => {
+      isMounted = false;
+    };
+  }, [chart, id]);
+
+  if (error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/50 p-4 rounded-lg my-4 text-xs font-mono text-red-400">
+        {error}
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      data-rendering={isRendering ? "true" : "false"}
+      className="flex justify-center my-6 overflow-x-auto bg-black/10 rounded-xl p-4 min-h-[100px] items-center print:bg-transparent print:p-0 print:min-h-0" 
+      dangerouslySetInnerHTML={{ __html: svg || '<div class="animate-pulse print:hidden">Rendering diagram...</div><div class="hidden print:block text-xs text-muted-foreground">Preparing diagram...</div>' }} 
+    />
+  );
+}
 
 import { ExcalidrawEditor } from './excalidraw-editor';
 import { ExcalidrawEmbed } from './excalidraw-embed';
@@ -36,8 +114,8 @@ import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { html } from '@codemirror/lang-html';
 import { languages } from '@codemirror/language-data';
-import { EditorView } from '@codemirror/view';
-import { blockIconGutter, autocompleteExtensions } from '@/lib/editor/cm-extensions';
+import { EditorView, scrollPastEnd } from '@codemirror/view';
+import { blockIconGutter, autocompleteExtensions, calloutHighlightPlugin } from '@/lib/editor/cm-extensions';
 import { tableEditExtension, tableEditTheme } from '@/lib/editor/table-extension';
 import { MiniGraphView } from './mini-graph-view';
 import { cn } from '@/lib/utils';
@@ -47,6 +125,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { ContentCard } from "./content-card";
 import { SidebarTriggerInternal } from "./sidebar-trigger-internal";
+
+const calloutTheme = EditorView.theme({
+  ".cm-callout": {
+    paddingLeft: "4px",
+    borderLeft: "4px solid transparent",
+    backgroundColor: "rgba(255, 255, 255, 0.03)"
+  },
+  ".cm-callout-info": { borderLeftColor: "#3b82f6", backgroundColor: "rgba(59, 130, 246, 0.05)" },
+  ".cm-callout-note": { borderLeftColor: "#3b82f6", backgroundColor: "rgba(59, 130, 246, 0.05)" },
+  ".cm-callout-warning": { borderLeftColor: "#f59e0b", backgroundColor: "rgba(245, 158, 11, 0.05)" },
+  ".cm-callout-danger": { borderLeftColor: "#ef4444", backgroundColor: "rgba(239, 68, 68, 0.05)" },
+  ".cm-callout-error": { borderLeftColor: "#ef4444", backgroundColor: "rgba(239, 68, 68, 0.05)" },
+  ".cm-callout-success": { borderLeftColor: "#10b981", backgroundColor: "rgba(16, 185, 129, 0.05)" },
+  ".cm-callout-tip": { borderLeftColor: "#8b5cf6", backgroundColor: "rgba(139, 92, 246, 0.05)" },
+  ".cm-callout-header": {
+    fontWeight: "bold",
+    color: "var(--primary)",
+    letterSpacing: "0.05em"
+  }
+});
 
 interface EditorProps {
   slug: string;
@@ -127,12 +225,6 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
       inlineCode.push(match);
       return `__INLINE_CODE_${inlineCode.length - 1}__`;
     });
-
-    // Process Hashtags into Chips
-    processed = processed.replace(/(^|\s)#([a-zA-Z0-9_]+)/g, '$1<span class="inline-flex items-center rounded-full bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary ring-1 ring-inset ring-primary/30 cursor-pointer hover:bg-primary/30 transition-colors mx-1 mb-1">#$2</span>');
-
-    // Process Mentions into Chips
-    processed = processed.replace(/(^|\s)@([a-zA-Z0-9_]+)/g, '$1<span class="inline-flex items-center rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-600 ring-1 ring-inset ring-amber-500/30 cursor-pointer hover:bg-amber-500/30 transition-colors mx-1 mb-1">@$2</span>');
 
     // Restore inline code
     processed = processed.replace(/__INLINE_CODE_(\d+)__/g, (_, idx) => inlineCode[parseInt(idx)]);
@@ -231,6 +323,13 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
     "&": {
       backgroundColor: "transparent !important",
     },
+    ".cm-content": {
+      lineHeight: "1.6",
+      padding: "10px 0"
+    },
+    ".cm-line": {
+      padding: "0 8px"
+    },
     ".cm-gutters": {
       backgroundColor: "transparent !important",
       borderRight: "1px solid var(--border)",
@@ -253,10 +352,13 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
     markdown({ base: markdownLanguage, codeLanguages: languages }),
     html(),
     EditorView.lineWrapping,
+    scrollPastEnd(),
     blockIconGutter,
+    calloutHighlightPlugin,
     tableEditExtension((pos) => openTableEditorAtCursor(pos)),
     tableEditTheme,
     autocompleteExtensions(allTags, allMentions, allNotes),
+    calloutTheme,
     transparentTheme
   ], [allTags, allMentions, allNotes, transparentTheme, openTableEditorAtCursor]);
 
@@ -350,7 +452,7 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
       
       // Switch back if needed
       if (!wasReadOnly) setIsReadOnly(false);
-    }, 500);
+    }, 1000);
   };
 
   const FormatButton = ({ onClick, icon: Icon, title }: { onClick: () => void, icon: any, title: string }) => (
@@ -438,7 +540,7 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
         <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
           {/* Fixed Toolbar Container */}
           <div className="flex-none flex flex-col items-center pt-4 z-30 mb-6 no-print">
-            <div className="flex items-center gap-4 bg-popover/80 backdrop-blur-xl border border-border p-1.5 rounded-full shadow-2xl transition-all">
+            <div className="flex items-center gap-4 bg-popover/90 backdrop-blur-md border border-border p-1.5 rounded-full shadow-lg transition-all">
               {!isExcalidraw && (
                 <div className="flex items-center gap-2 px-3 border-r border-border mr-1">
                   <Switch 
@@ -488,17 +590,86 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
           </div>
 
           {/* Scrollable Content Area */}
-          <div className="flex-1 overflow-y-auto scroll-smooth print:overflow-visible">
-            <div className={`mx-auto w-full print-content ${isExcalidraw ? 'max-w-none px-4 pb-4 print:p-0' : 'max-w-4xl px-6 py-12 pt-0 print:p-0'}`}>
-              <div className="w-full h-full relative">
+          <div className={cn(
+            "flex-1 scroll-smooth print:overflow-visible",
+            isExcalidraw ? "overflow-hidden h-full" : "overflow-y-auto"
+          )}>
+            <div className={cn(
+              "mx-auto w-full print-content",
+              isExcalidraw ? "max-w-none p-0 h-full" : "max-w-4xl px-6 py-12 pt-0"
+            )}>
+              <div className={cn("w-full relative", isExcalidraw ? "h-full" : "h-full")}>
                 {isExcalidraw ? (
                   <ExcalidrawEditor key={slug} slug={slug} initialContent={initialContent} />
                 ) : isReadOnly ? (
                   <div className="prose prose-sm dark:prose-invert max-w-none print:prose-headings:text-black print:prose-p:text-black">
                     <ReactMarkdown 
-                      remarkPlugins={[remarkGfm]}
-                      rehypePlugins={[rehypeRaw]}
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeRaw, rehypeKatex]}
                       components={{
+                        p: ({ node, children, ...props }) => {
+                          const textContent = node?.children
+                            ? (node.children as any[]).map(c => c.value || (c.children ? c.children.map((cc: any) => cc.value).join('') : '')).join('')
+                            : '';
+                          
+                          const calloutMatch = textContent.match(/^\[!(\w+)\]/);
+                          if (calloutMatch) {
+                            const type = calloutMatch[1].toLowerCase();
+                            const colors: Record<string, { border: string, bg: string, text: string, ring: string }> = {
+                              info: { border: 'border-blue-500', bg: 'bg-blue-500/10', text: 'text-blue-400', ring: 'ring-blue-500/20' },
+                              note: { border: 'border-blue-500', bg: 'bg-blue-500/10', text: 'text-blue-400', ring: 'ring-blue-500/20' },
+                              warning: { border: 'border-amber-500', bg: 'bg-amber-500/10', text: 'text-amber-400', ring: 'ring-amber-500/20' },
+                              danger: { border: 'border-red-500', bg: 'bg-red-500/10', text: 'text-red-400', ring: 'ring-red-500/20' },
+                              error: { border: 'border-red-500', bg: 'bg-red-500/10', text: 'text-red-400', ring: 'ring-red-500/20' },
+                              success: { border: 'border-emerald-500', bg: 'bg-emerald-500/10', text: 'text-emerald-400', ring: 'ring-emerald-500/20' },
+                              tip: { border: 'border-purple-500', bg: 'bg-purple-500/10', text: 'text-purple-400', ring: 'ring-purple-500/20' },
+                              todo: { border: 'border-cyan-500', bg: 'bg-cyan-500/10', text: 'text-cyan-400', ring: 'ring-cyan-500/20' },
+                            };
+                            const icons: Record<string, any> = {
+                              info: <Info className="h-4 w-4 mr-2" />,
+                              note: <Info className="h-4 w-4 mr-2" />,
+                              warning: <AlertTriangle className="h-4 w-4 mr-2" />,
+                              danger: <AlertCircle className="h-4 w-4 mr-2" />,
+                              error: <AlertCircle className="h-4 w-4 mr-2" />,
+                              success: <CheckCircle2 className="h-4 w-4 mr-2" />,
+                              tip: <Plus className="h-4 w-4 mr-2" />,
+                              todo: <CheckCircle2 className="h-4 w-4 mr-2" />,
+                            };
+                            const color = colors[type] || colors.info;
+
+                            // Robustly remove [!type] from the children
+                            const stripCalloutTag = (nodes: React.ReactNode): React.ReactNode => {
+                              return React.Children.map(nodes, (child, i) => {
+                                if (i !== 0) return child;
+                                if (typeof child === 'string') {
+                                  return child.replace(/^\[!\w+\]\s*/, '');
+                                }
+                                if (React.isValidElement(child) && (child.props as any).children) {
+                                  return React.cloneElement(child, {
+                                    children: stripCalloutTag((child.props as any).children)
+                                  } as any);
+                                }
+                                return child;
+                              });
+                            };
+
+                            return (
+                              <div className={cn(
+                                "my-6 border-l-4 p-4 rounded-r-xl shadow-lg ring-1",
+                                color.border, color.bg, color.ring
+                              )}>
+                                <div className={cn("flex items-center font-black uppercase text-[11px] tracking-[0.2em] mb-3", color.text)}>
+                                  {icons[type]}
+                                  <span>{type}</span>
+                                </div>
+                                <div className="prose-p:m-0 text-[14px] text-foreground/90 leading-relaxed">
+                                  {stripCalloutTag(children)}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return <p {...props}>{children}</p>;
+                        },
                         input: ({ node, ...props }) => {
                           if (props.type === 'checkbox') {
                             return (
@@ -610,14 +781,52 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
                           }
                           return <a {...props} target="_blank" rel="noopener noreferrer">{props.children}</a>;
                         },
+                        text: ({ node, children, ...props }) => {
+                          // Handle Hashtags and Mentions during text rendering
+                          if (typeof children === 'string') {
+                            const segments = children.split(/((?:^|\s)#\w+|(?:^|\s)@\w+)/g);
+                            return (
+                              <>
+                                {segments.map((segment, i) => {
+                                  if (segment.match(/(^|\s)#\w+/)) {
+                                    return (
+                                      <span key={i} className="inline-flex items-center rounded-full bg-primary/20 px-2 py-0.5 text-[11px] font-bold text-primary ring-1 ring-inset ring-primary/30 mx-0.5">
+                                        {segment.trim()}
+                                      </span>
+                                    );
+                                  }
+                                  if (segment.match(/(^|\s)@\w+/)) {
+                                    return (
+                                      <span key={i} className="inline-flex items-center rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-bold text-amber-500 ring-1 ring-inset ring-amber-500/30 mx-0.5">
+                                        {segment.trim()}
+                                      </span>
+                                    );
+                                  }
+                                  return segment;
+                                })}
+                              </>
+                            );
+                          }
+                          return children;
+                        },
+                        blockquote: ({ node, children, ...props }) => {
+                          // Standard blockquote styling, callouts are now handled in paragraph component for better compatibility
+                          return <blockquote className="border-l-4 border-muted/30 pl-4 italic my-6 text-muted-foreground" {...props}>{children}</blockquote>;
+                        },
                         code: ({ node, className, children, ...props }) => {
                           const match = /language-(\w+)/.exec(className || '');
+                          const lang = match ? match[1] : 'text';
+
+                          if (lang === 'mermaid') {
+                            return <Mermaid chart={String(children).replace(/\n$/, '')} />;
+                          }
+
                           const isBlock = match || String(children).includes('\n');
                           return isBlock ? (
                             <div className="relative group">
                               <SyntaxHighlighter
                                 style={vscDarkPlus as any}
-                                language={match ? match[1] : 'typescript'}
+                                language={lang}
                                 PreTag="div"
                                 customStyle={{ backgroundColor: 'transparent', padding: 0, margin: '1em 0' }}
                                 className="!bg-transparent text-[13px] no-print"
@@ -626,7 +835,7 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
                               </SyntaxHighlighter>
                               <SyntaxHighlighter
                                 style={prism as any}
-                                language={match ? match[1] : 'typescript'}
+                                language={lang}
                                 PreTag="div"
                                 customStyle={{ 
                                   backgroundColor: '#f8f9fa', 

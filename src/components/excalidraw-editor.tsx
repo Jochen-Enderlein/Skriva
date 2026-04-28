@@ -113,7 +113,7 @@ export function ExcalidrawEditor({ slug, initialContent }: ExcalidrawEditorProps
   }
 
   return (
-    <div className="w-full h-[calc(100vh-140px)] mt-2 border border-border rounded-xl overflow-hidden bg-background shadow-2xl relative print:h-auto print:border-none print:shadow-none print:mt-0">
+    <div className="w-full h-full relative print:h-auto print:border-none print:shadow-none print:mt-0">
       <div className="w-full h-full no-print">
         <Excalidraw
           initialData={{
@@ -121,7 +121,7 @@ export function ExcalidrawEditor({ slug, initialContent }: ExcalidrawEditorProps
             appState: { 
               ...data.appState, 
               isLoading: false,
-              viewBackgroundColor: data.appState?.viewBackgroundColor || (resolvedTheme != 'dark' ? "#121212" : "#ffffff"),
+              viewBackgroundColor: "transparent",
               zoom: { value: 1 },
               scrollX: data.appState?.scrollX || 0,
               scrollY: data.appState?.scrollY || 0,
@@ -129,7 +129,7 @@ export function ExcalidrawEditor({ slug, initialContent }: ExcalidrawEditorProps
             files: data.files || {},
           }}
           onChange={handleChange}
-          theme={resolvedTheme != 'dark' ? 'dark' : 'light'}
+          theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
           UIOptions={{
             canvasActions: {
               toggleTheme: false,

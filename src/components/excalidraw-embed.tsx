@@ -14,9 +14,12 @@ interface ExcalidrawEmbedProps {
   slug: string;
 }
 
+// Simple global cache to avoid redundant fetches during re-renders (especially print)
+const excalidrawCache: Record<string, any> = {};
+
 export function ExcalidrawEmbed({ slug }: ExcalidrawEmbedProps) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>(excalidrawCache[slug] || null);
+  const [loading, setLoading] = useState(!excalidrawCache[slug]);
   const [svgUrl, setSvgUrl] = useState<string | null>(null);
   const { resolvedTheme } = useTheme();
 
@@ -24,39 +27,66 @@ export function ExcalidrawEmbed({ slug }: ExcalidrawEmbedProps) {
     let isMounted = true;
 
     async function fetchAndProcess() {
-      const result = await getNoteContentAction(slug);
-      if (!isMounted) return;
+      let retryCount = 0;
+      const maxRetries = 3;
 
-      if (result.success && result.content) {
+      const attemptFetch = async () => {
         try {
-          const parsedData = JSON.parse(result.content);
-          setData(parsedData);
+          let parsedData = excalidrawCache[slug];
           
-          // Dynamically import exportToSvg and generate SVG
-          const { exportToSvg } = await import('@excalidraw/excalidraw');
-          
-          if (exportToSvg && parsedData.elements && isMounted) {
-            const svg = await exportToSvg({
-              elements: parsedData.elements,
-              appState: {
-                ...parsedData.appState,
-                exportWithBlur: false,
-                exportBackground: true,
-                viewBackgroundColor: '#ffffff'
-              },
-              files: parsedData.files,
-              exportPadding: 10,
-            });
-            
-            const svgString = new XMLSerializer().serializeToString(svg);
-            const blob = new Blob([svgString], { type: 'image/svg+xml' });
-            setSvgUrl(URL.createObjectURL(blob));
+          if (!parsedData) {
+            console.log(`[Excalidraw] Fetching content for ${slug} (attempt ${retryCount + 1})...`);
+            const result = await getNoteContentAction(slug);
+            if (!isMounted) return;
+
+            if (result.success && result.content) {
+              parsedData = JSON.parse(result.content);
+              excalidrawCache[slug] = parsedData;
+              setData(parsedData);
+            } else if (retryCount < maxRetries) {
+              retryCount++;
+              setTimeout(attemptFetch, 1000);
+              return;
+            }
+          }
+
+          if (parsedData && isMounted) {
+            // Generate SVG for print
+            try {
+              const { exportToSvg } = await import('@excalidraw/excalidraw');
+              if (exportToSvg && parsedData.elements) {
+                const svg = await exportToSvg({
+                  elements: parsedData.elements,
+                  appState: {
+                    ...parsedData.appState,
+                    exportWithBlur: false,
+                    exportBackground: false,
+                    viewBackgroundColor: '#ffffff'
+                  },
+                  files: parsedData.files,
+                  exportPadding: 10,
+                });
+                
+                if (isMounted) {
+                  const svgString = new XMLSerializer().serializeToString(svg);
+                  const blob = new Blob([svgString], { type: 'image/svg+xml' });
+                  setSvgUrl(URL.createObjectURL(blob));
+                }
+              }
+            } catch (svgErr) {
+              console.error(`[Excalidraw] SVG error:`, svgErr);
+            }
           }
         } catch (e) {
-          console.error('Failed to process excalidraw data', e);
+          console.error(`[Excalidraw] Error:`, e);
+        } finally {
+          if (isMounted && (parsedData || retryCount >= maxRetries)) {
+            setLoading(false);
+          }
         }
-      }
-      setLoading(false);
+      };
+
+      attemptFetch();
     }
 
     fetchAndProcess();
@@ -65,22 +95,31 @@ export function ExcalidrawEmbed({ slug }: ExcalidrawEmbedProps) {
 
   if (loading) {
     return (
-      <div className="w-full h-64 flex items-center justify-center bg-white/5 animate-pulse rounded-lg my-4 border border-white/5">
+      <div 
+        data-rendering="true"
+        className="w-full h-64 flex items-center justify-center bg-white/5 animate-pulse rounded-lg my-4 border border-white/5">
         <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Loading Drawing...</span>
       </div>
     );
   }
 
+  // If we have data but no svgUrl yet, we are still "rendering" for print purposes
+  const isActuallyRendering = !svgUrl && !!data;
+
   if (!data) {
     return (
-      <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs font-mono my-4">
+      <div 
+        data-rendering="false"
+        className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs font-mono my-4">
         Could not load excalidraw file: {slug}
       </div>
     );
   }
 
   return (
-    <div className="relative group my-4 border-l-4 border-primary/40 pl-4 h-[400px] bg-background rounded-xl overflow-hidden border border-border print:border-none print:pl-0 print:h-auto print:min-h-0">
+    <div 
+      data-rendering={isActuallyRendering ? "true" : "false"}
+      className="relative group my-4 border-l-4 border-primary/40 pl-4 h-[400px] bg-background rounded-xl overflow-hidden border border-border print:border-none print:pl-0 print:h-auto print:min-h-0">
       {/* Live version for app */}
       <div className="w-full h-full no-print">
         <Excalidraw

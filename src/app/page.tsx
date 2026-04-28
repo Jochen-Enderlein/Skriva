@@ -12,7 +12,7 @@ export default async function Home() {
 
   return (
     <LayoutWrapper notes={notes} folders={folders}>
-      <ContentCard>
+      <ContentCard isHome={true}>
         <SidebarTriggerInternal />
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8 text-center">
           <div className="relative mb-6">

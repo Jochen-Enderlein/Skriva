@@ -14,7 +14,7 @@ export default async function TagsPage() {
 
   return (
     <LayoutWrapper notes={notes} folders={folders}>
-      <ContentCard>
+      <ContentCard isHome={true}>
         <SidebarTriggerInternal />
         <div className="h-full flex flex-col max-w-4xl mx-auto py-12 px-6">
           <h2 className="text-3xl font-bold mb-8 flex items-center gap-2">

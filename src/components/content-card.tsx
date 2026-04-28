@@ -6,12 +6,13 @@ import { cn } from '@/lib/utils';
 interface ContentCardProps {
   children: React.ReactNode;
   className?: string;
+  isHome?: boolean;
 }
 
-export function ContentCard({ children, className }: ContentCardProps) {
+export function ContentCard({ children, className, isHome }: ContentCardProps) {
   return (
     <div className={cn(
-      "w-full h-full bg-background rounded-2xl md:rounded-3xl border border-border/40 overflow-hidden relative group/card",
+      "w-full h-full bg-background rounded-b-2xl md:rounded-b-3xl rounded-t-xl md:rounded-t-xl overflow-hidden relative group/card transition-all duration-300",
       className
     )}>
       {children}

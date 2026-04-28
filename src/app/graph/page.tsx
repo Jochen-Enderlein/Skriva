@@ -13,7 +13,7 @@ export default async function GraphPage() {
 
   return (
     <LayoutWrapper notes={notes} folders={folders}>
-      <ContentCard>
+      <ContentCard isHome={true}>
         <SidebarTriggerInternal />
         <div className="h-full flex flex-col">
           <div className="p-4 flex justify-between items-center bg-transparent">

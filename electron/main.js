@@ -120,29 +120,71 @@ ipcMain.handle('save-note-as-pdf', async (event, title) => {
 
     if (pdfPath.canceled) return false;
 
-    // Wait long enough for Excalidraw and syntax highlighting to re-render in print mode
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Save original background color
+    const originalBg = mainWindow.getBackgroundColor();
+    // Set to white for export to prevent black margins/borders
+    mainWindow.setBackgroundColor('#ffffff');
+    
+    // Force white background via CSS injection to be absolutely sure
+    await mainWindow.webContents.insertCSS(`
+      html, body, #__next, [data-slot="sidebar-wrapper"], .flex { 
+        background-color: white !important; 
+        background: white !important; 
+      }
+    `);
+
+    // Wait for components to mount and start rendering
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Wait for Mermaid and other diagrams to finish rendering
+    await mainWindow.webContents.executeJavaScript(`
+      (async () => {
+        const waitForRendering = () => {
+          return new Promise((resolve) => {
+            let checks = 0;
+            const check = () => {
+              const rendering = document.querySelectorAll('[data-rendering="true"]');
+              // If we still see rendering elements, wait. 
+              // We wait up to 20 seconds now because Excalidraw can be slow.
+              if (rendering.length > 0 && checks < 200) { 
+                checks++;
+                setTimeout(check, 100);
+              } else {
+                resolve();
+              }
+            };
+            check();
+          });
+        };
+        await waitForRendering();
+        await new Promise(r => setTimeout(r, 1000));
+      })()
+    `);
 
     const options = {
       printBackground: true,
       displayHeaderFooter: true,
       headerTemplate: `
-        <div style="font-size: 9px; width: 100%; margin: 0 1cm; display: flex; justify-content: space-between; font-family: sans-serif; color: #888;">
+        <div style="font-size: 9px; width: 100%; margin: 0 1cm; display: flex; justify-content: space-between; font-family: sans-serif; color: #888; background: white; -webkit-print-color-adjust: exact;">
           <span>Feli.md</span>
           <span>${title || 'Note'}</span>
         </div>`,
       footerTemplate: `
-        <div style="font-size: 9px; width: 100%; margin: 0 1cm; display: flex; justify-content: flex-end; font-family: sans-serif; color: #888;">
+        <div style="font-size: 9px; width: 100%; margin: 0 1cm; display: flex; justify-content: flex-end; font-family: sans-serif; color: #888; background: white; -webkit-print-color-adjust: exact;">
           <span>Seite <span class="pageNumber"></span> von <span class="totalPages"></span></span>
         </div>`,
       pageSize: 'A4',
       margins: {
-        marginType: 'default' // This makes it look like the web version
+        marginType: 'none'
       }
     };
 
     const data = await mainWindow.webContents.printToPDF(options);
     fs.writeFileSync(pdfPath.filePath, data);
+    
+    // Restore original background color
+    mainWindow.setBackgroundColor(originalBg);
+    
     return true;
   } catch (error) {
     console.error('Failed to export PDF:', error);

@@ -313,16 +313,51 @@
 
 /* PRINT STYLES */
 @media print {
+  @page {
+    margin: 0;
+    size: auto;
+  }
+
   :root {
     --background: white !important;
     --foreground: black !important;
   }
 
-  body {
+  html, body {
     background: white !important;
+    background-color: white !important;
     color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Standard page margins for marginType: 'none' */
+  @page {
+    margin: 1.5cm !important;
+    size: A4;
+  }
+
+  /* Force parent containers to be visible and white */
+  [data-slot="sidebar-wrapper"],
+  .flex.h-screen,
+  .flex.flex-1.flex-col,
+  #root,
+  #__next,
+  div,
+  section,
+  article,
+  main {
+    background: white !important;
+    background-color: white !important;
+    box-shadow: none !important;
+    border-color: transparent !important;
+    overflow: visible !important;
+    display: block !important;
+    height: auto !important;
+    width: auto !important;
   }
 
   /* Hide UI elements */
@@ -345,18 +380,6 @@
   .fixed,
   .absolute.no-print {
     display: none !important;
-  }
-
-  /* Force parent containers to be visible */
-  [data-slot="sidebar-wrapper"],
-  .flex.h-screen,
-  .flex.flex-1.flex-col {
-    display: block !important;
-    height: auto !important;
-    overflow: visible !important;
-    background: white !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
   }
 
   /* Force content area to be full width with generous padding */
