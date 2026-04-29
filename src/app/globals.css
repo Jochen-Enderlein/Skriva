@@ -131,16 +131,12 @@
   header button, 
   header input,
   header a,
+  header div.no-drag,
   header [role="button"],
   [data-slot="sidebar-header"] button,
   [data-slot="sidebar-header"] a,
   [data-slot="sidebar-header"] input,
   .no-drag {
-    -webkit-app-region: no-drag;
-  }
-
-  /* Specific fix for TabList area */
-  [data-slot="sidebar-wrapper"] .flex-1.flex.items-center.min-w-0 > div {
     -webkit-app-region: no-drag;
   }
 

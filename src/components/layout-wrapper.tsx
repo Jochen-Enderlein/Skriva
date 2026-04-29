@@ -1049,16 +1049,6 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>
-                          <SidebarMenuButton 
-                            onClick={handleRandomNote} 
-                            tooltip="Random Note" 
-                            className="hover:bg-accent"
-                          >
-                            <Shuffle className="h-4 w-4 opacity-50 text-amber-500" />
-                            <span className="font-medium text-[13px]">Random Note</span>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                        <SidebarMenuItem>
                           <SidebarMenuButton render={<Link href="/tags" className="text-inherit!" />} isActive={pathname === '/tags'} tooltip="Tags" className="hover:bg-accent data-[active=true]:bg-accent">
                             <Hash className="h-4 w-4 opacity-50" /><span className="font-medium text-[13px]">Tags</span>
                           </SidebarMenuButton>

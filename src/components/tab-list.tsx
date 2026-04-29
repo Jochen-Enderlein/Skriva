@@ -18,10 +18,13 @@ export function TabList() {
   }, []);
 
   return (
-    <div className={cn(
-      "flex items-end gap-0 overflow-x-auto no-scrollbar h-full transition-all duration-300 w-full",
-      isMac && state === "collapsed" ? "pl-20" : "pl-0"
-    )}>
+    <div 
+      className={cn(
+        "flex items-end gap-0 overflow-x-auto no-scrollbar h-full transition-all duration-300 max-w-full",
+        isMac && state === "collapsed" ? "pl-20" : "pl-0"
+      )}
+      style={{ WebkitAppRegion: 'drag' } as any}
+    >
       <Link 
         href="/" 
         className={cn(
@@ -56,7 +59,7 @@ export function TabList() {
                 <div
                   key={tab.slug}
                   className={cn(
-                    "group relative flex items-center h-9 px-4 gap-2 min-w-[120px] max-w-[200px] text-[12px] font-medium transition-all duration-200 select-none rounded-t-xl z-30 border-t",
+                    "no-drag group relative flex items-center h-9 px-4 gap-2 min-w-[120px] max-w-[200px] text-[12px] font-medium transition-all duration-200 select-none rounded-t-xl z-30 border-t",
                     isActive
                       ? "bg-background text-foreground border-l border-r border-border/40 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] mb-[-1px] border-t-border/40"
                       : "text-muted-foreground hover:bg-accent/30 hover:text-foreground mb-[-1px] mx-0.5 border-t-transparent"
