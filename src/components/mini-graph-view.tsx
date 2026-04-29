@@ -37,10 +37,39 @@ export function MiniGraphView({ currentSlug, currentContent, globalData }: MiniG
   const router = useRouter();
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const containerRef = React.useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const el = containerRef.current;
+    if (!el) return;
+    
+    const updateDimensions = () => {
+      const { clientWidth, clientHeight } = el;
+      if (clientWidth > 0 && clientHeight > 0) {
+        setDimensions({ width: clientWidth, height: clientHeight });
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(updateDimensions);
+    resizeObserver.observe(el);
+    
+    // Initial checks
+    updateDimensions();
+    const timeout1 = setTimeout(updateDimensions, 100);
+    const timeout2 = setTimeout(updateDimensions, 500);
+    
+    return () => {
+      resizeObserver.disconnect();
+      clearTimeout(timeout1);
+      clearTimeout(timeout2);
+    };
+  }, [mounted]);
 
   const localGraphData = useMemo(() => {
     const nodesMap = new Map<string, Node>();
@@ -122,55 +151,63 @@ export function MiniGraphView({ currentSlug, currentContent, globalData }: MiniG
   const isDark = resolvedTheme === 'dark';
 
   return (
-    <div className="w-full h-64 bg-background  overflow-hidden  relative flex flex-col">
-      <div className="flex-1">
-        <ForceGraph2D
-          graphData={localGraphData}
-          nodeLabel="title"
-          backgroundColor={isDark ? '#080808' : '#ffffff'}
-          linkColor={() => isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)'}
-          linkWidth={1}
-          nodeRelSize={4}
-          width={320}
-          height={256}
-          onNodeClick={(node: any) => {
-            if (node.type === 'note' && node.id !== currentSlug) {
-              router.push(`/note/${node.id}`);
-            }
-          }}
-          nodeCanvasObject={(node: any, ctx, globalScale) => {
-            const isCurrent = node.id === currentSlug;
-            const label = node.title;
-            const fontSize = (isCurrent ? 14 : 10) / globalScale;
-            ctx.font = `${fontSize}px Inter`;
-            const textWidth = ctx.measureText(label).width;
-            const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.4);
+    <div ref={containerRef} className="w-full h-full bg-background overflow-hidden relative flex flex-col min-h-[150px]">
+      <div className="flex-1 w-full h-full relative">
+        {dimensions.width > 0 && dimensions.height > 0 ? (
+          <div style={{ width: dimensions.width, height: dimensions.height }} className="absolute inset-0">
+            <ForceGraph2D
+              graphData={localGraphData}
+              nodeLabel="title"
+              backgroundColor={isDark ? '#080808' : '#ffffff'}
+              linkColor={() => isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)'}
+              linkWidth={1}
+              nodeRelSize={4}
+              width={dimensions.width}
+              height={dimensions.height}
+              onNodeClick={(node: any) => {
+                if (node.type === 'note' && node.id !== currentSlug) {
+                  router.push(`/note/${node.id}`);
+                }
+              }}
+              nodeCanvasObject={(node: any, ctx, globalScale) => {
+                const isCurrent = node.id === currentSlug;
+                const label = node.title;
+                const fontSize = (isCurrent ? 14 : 10) / globalScale;
+                ctx.font = `${fontSize}px Inter`;
+                const textWidth = ctx.measureText(label).width;
+                const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.4);
 
-            // Draw node circle
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, node.type === 'tag' || node.type === 'mention' ? 2 : (isCurrent ? 4 : 3), 0, 2 * Math.PI, false);
-            ctx.fillStyle = node.type === 'tag' ? '#a855f7' : (node.type === 'mention' ? '#f59e0b' : (isCurrent ? '#10b981' : '#3b82f6'));
-            ctx.fill();
+                // Draw node circle
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, node.type === 'tag' || node.type === 'mention' ? 2 : (isCurrent ? 4 : 3), 0, 2 * Math.PI, false);
+                ctx.fillStyle = node.type === 'tag' ? '#a855f7' : (node.type === 'mention' ? '#f59e0b' : (isCurrent ? '#10b981' : '#3b82f6'));
+                ctx.fill();
 
-            // Label
-            if (globalScale > 1.2 || isCurrent) {
-              ctx.fillStyle = isDark ? 'rgba(15, 15, 15, 0.8)' : 'rgba(255, 255, 255, 0.9)';
-              ctx.roundRect(
-                node.x - bckgDimensions[0] / 2, 
-                node.y + 5, 
-                bckgDimensions[0] as number, 
-                bckgDimensions[1] as number,
-                2
-              );
-              ctx.fill();
+                // Label
+                if (globalScale > 1.2 || isCurrent) {
+                  ctx.fillStyle = isDark ? 'rgba(15, 15, 15, 0.8)' : 'rgba(255, 255, 255, 0.9)';
+                  ctx.roundRect(
+                    node.x - bckgDimensions[0] / 2, 
+                    node.y + 5, 
+                    bckgDimensions[0] as number, 
+                    bckgDimensions[1] as number,
+                    2
+                  );
+                  ctx.fill();
 
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'top';
-              ctx.fillStyle = node.type === 'tag' ? '#a855f7' : (node.type === 'mention' ? '#f59e0b' : (isCurrent ? '#10b981' : (isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.7)')));
-              ctx.fillText(label, node.x, node.y + 6);
-            }
-          }}
-        />
+                  ctx.textAlign = 'center';
+                  ctx.textBaseline = 'top';
+                  ctx.fillStyle = node.type === 'tag' ? '#a855f7' : (node.type === 'mention' ? '#f59e0b' : (isCurrent ? '#10b981' : (isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.7)')));
+                  ctx.fillText(label, node.x, node.y + 6);
+                }
+              }}
+            />
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground opacity-50">
+            Rendering Graph...
+          </div>
+        )}
       </div>
     </div>
   );

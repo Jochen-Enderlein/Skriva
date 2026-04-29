@@ -12,7 +12,7 @@ declare global {
       closeWindow: () => Promise<void>;
       
       // Filesystem operations
-      getNotes: (dir: string) => Promise<NoteMetadata[]>;
+      getNotes: (dir?: string, includeTemplates?: boolean) => Promise<NoteMetadata[]>;
       getNoteContent: (slug: string) => Promise<string>;
       saveNote: (slug: string, content: string) => Promise<boolean>;
       deleteFile: (slug: string) => Promise<boolean>;

@@ -300,9 +300,42 @@ export const autocompleteExtensions = (allTags: string[], allMentions: string[],
         }
         return null;
       },
-      (context: CompletionContext): CompletionResult | null => {
+      (context: CompletionContext): Promise<CompletionResult | null> | CompletionResult | null => {
         let word = context.matchBefore(/\[\[[^\]]*/);
         if (!word) return null;
+
+        const text = word.text.substring(2);
+        const hashIndex = text.indexOf('#');
+        
+        if (hashIndex !== -1) {
+          const noteTitle = text.substring(0, hashIndex);
+          const note = allNotes.find(n => n.title === noteTitle);
+          if (note) {
+            return (async () => {
+              const { getNoteContentAction } = await import('@/app/actions');
+              const res = await getNoteContentAction(note.slug);
+              if (res.success && res.content) {
+                const headings: string[] = [];
+                const lines = res.content.split('\n');
+                for (const line of lines) {
+                  const match = line.match(/^(#{1,6})\s+(.+)$/);
+                  if (match) {
+                    headings.push(match[2].trim());
+                  }
+                }
+                return {
+                  from: word.from + 2 + hashIndex + 1,
+                  options: headings.map(h => ({
+                    label: h,
+                    type: "text",
+                    apply: `${h}]]`
+                  }))
+                };
+              }
+              return null;
+            })();
+          }
+        }
         
         return {
           from: word.from + 2,

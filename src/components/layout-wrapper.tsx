@@ -61,7 +61,8 @@ import {
   setVaultPathAction,
   getVaultPathAction,
   getTemplatesAction,
-  getReadmeAction
+  getReadmeAction,
+  importItemsAction
   } from "@/app/actions";
   import { toast } from "sonner";
   import ReactMarkdown from 'react-markdown';
@@ -122,20 +123,7 @@ type SearchResult = {
   snippet: string;
 };
 
-declare global {
-  interface Window {
-    electron?: {
-      selectFolder: () => Promise<string | null>;
-      getVaultPath: () => Promise<string | null>;
-      setVaultPath: (path: string) => Promise<boolean>;
-      saveNoteAsPdf: (title: string) => Promise<boolean>;
-      minimizeWindow: () => Promise<void>;
-      maximizeWindow: () => Promise<void>;
-      closeWindow: () => Promise<void>;
-      platform: string;
-    };
-  }
-}
+
 
 export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) {
   const pathname = usePathname();

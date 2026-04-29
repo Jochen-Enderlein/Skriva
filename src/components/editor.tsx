@@ -15,6 +15,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeRaw from 'rehype-raw';
 import rehypeKatex from 'rehype-katex';
+import rehypeSlug from 'rehype-slug';
 import 'katex/dist/katex.min.css';
 import Link from 'next/link';
 import { 
@@ -117,6 +118,7 @@ import { languages } from '@codemirror/language-data';
 import { EditorView, scrollPastEnd } from '@codemirror/view';
 import { blockIconGutter, autocompleteExtensions, calloutHighlightPlugin } from '@/lib/editor/cm-extensions';
 import { tableEditExtension, tableEditTheme } from '@/lib/editor/table-extension';
+import { livePreviewExtension, livePreviewTheme } from '@/lib/editor/live-preview';
 import { MiniGraphView } from './mini-graph-view';
 import { cn } from '@/lib/utils';
 import { Button } from "@/components/ui/button";
@@ -178,6 +180,26 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
     setContent(initialContent);
   }, [initialContent]);
 
+  useEffect(() => {
+    const handleHashScroll = () => {
+      if (window.location.hash) {
+        const hash = window.location.hash.substring(1);
+        const el = document.getElementById(hash);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    };
+    
+    // Attempt scroll on mount and when switching to read-only mode
+    if (isReadOnly) {
+      setTimeout(handleHashScroll, 100);
+    }
+    
+    window.addEventListener('hashchange', handleHashScroll);
+    return () => window.removeEventListener('hashchange', handleHashScroll);
+  }, [slug, isReadOnly]);
+
   const saveContent = useCallback(async (newContent: string) => {
     const result = await saveNoteAction(slug, newContent);
     if (!result.success) {
@@ -206,11 +228,29 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
       const target = parts[0];
       const display = parts[1] || target;
       
-      if (target.toLowerCase().endsWith('.excalidraw')) {
-        return `<div class="excalidraw-transclusion" data-slug="${encodeURIComponent(target)}"></div>`;
+      const hashIndex = target.indexOf('#');
+      const blockIndex = target.indexOf('^');
+      const specialIndex = hashIndex !== -1 ? hashIndex : (blockIndex !== -1 ? blockIndex : -1);
+      
+      let baseTarget = target;
+      let hashTarget = '';
+      if (specialIndex !== -1) {
+        baseTarget = target.substring(0, specialIndex);
+        const originalHash = target.substring(specialIndex);
+        if (originalHash.startsWith('#')) {
+           const slugifiedHash = originalHash.substring(1).toLowerCase().trim().replace(/[\s_]+/g, '-').replace(/[^\w\p{L}-]+/gu, '');
+           hashTarget = '#' + slugifiedHash;
+        } else {
+           hashTarget = originalHash;
+        }
       }
       
-      return `[${display}](/note/${encodeURIComponent(target)})`;
+      if (baseTarget.toLowerCase().endsWith('.excalidraw')) {
+        return `<div class="excalidraw-transclusion" data-slug="${encodeURIComponent(baseTarget)}"></div>`;
+      }
+      
+      const noteUrl = baseTarget ? `/note/${encodeURIComponent(baseTarget)}` : '';
+      return `[${display}](${noteUrl}${hashTarget})`;
     });
 
     // Protect code blocks and inline code
@@ -359,7 +399,9 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
     tableEditTheme,
     autocompleteExtensions(allTags, allMentions, allNotes),
     calloutTheme,
-    transparentTheme
+    transparentTheme,
+    livePreviewExtension,
+    livePreviewTheme
   ], [allTags, allMentions, allNotes, transparentTheme, openTableEditorAtCursor]);
 
   const BacklinksSection = () => {
@@ -474,7 +516,7 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
   const renderGraphContent = () => (
     <div className="w-full h-full flex flex-col p-4 gap-2 overflow-hidden">
       <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground px-2">Local Graph</div>
-      <div className="flex-1 w-full rounded-xl overflow-hidden bg-transparent">
+      <div className="flex-1 w-full rounded-xl overflow-hidden bg-transparent relative flex flex-col min-h-0">
         <MiniGraphView currentSlug={slug} currentContent={content} globalData={graphData} />
       </div>
     </div>
@@ -605,7 +647,7 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
                   <div className="prose prose-sm dark:prose-invert max-w-none print:prose-headings:text-black print:prose-p:text-black">
                     <ReactMarkdown 
                       remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeRaw, rehypeKatex]}
+                      rehypePlugins={[rehypeRaw, rehypeKatex, rehypeSlug]}
                       components={{
                         p: ({ node, children, ...props }) => {
                           const textContent = node?.children
@@ -871,7 +913,7 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
                       theme="dark"
                       extensions={cmExtensions}
                       onChange={(val) => setContent(val)}
-                      className="h-full text-base font-mono"
+                      className="h-full text-base"
                       basicSetup={{
                         lineNumbers: true,
                         foldGutter: true,

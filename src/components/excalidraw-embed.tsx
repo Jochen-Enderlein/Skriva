@@ -31,8 +31,9 @@ export function ExcalidrawEmbed({ slug }: ExcalidrawEmbedProps) {
       const maxRetries = 3;
 
       const attemptFetch = async () => {
+        let parsedData: any = null;
         try {
-          let parsedData = excalidrawCache[slug];
+          parsedData = excalidrawCache[slug];
           
           if (!parsedData) {
             console.log(`[Excalidraw] Fetching content for ${slug} (attempt ${retryCount + 1})...`);
