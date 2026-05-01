@@ -556,7 +556,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
             <Collapsible defaultOpen className="group/collapsible">
               <div>
                 <div className="flex items-center group/item pr-2">
-                  <CollapsibleTrigger render={<SidebarMenuButton render={<div />} className="flex-1 cursor-pointer" />}>
+                  <CollapsibleTrigger nativeButton={false} render={<SidebarMenuButton render={<div />} className="flex-1 cursor-pointer" />}>
                     <ChevronDown className="h-3 w-3 opacity-30 transition-transform group-data-[state=closed]/collapsible:-rotate-90" />
                     <Folder className="h-4 w-4 opacity-70 group-hover:opacity-100 transition-opacity" style={folderStyle.iconStyle} />
                     <span className="truncate font-medium text-[13px] opacity-80 group-hover:opacity-100 transition-opacity" style={folderStyle.textStyle}>{node.name}</span>
@@ -969,9 +969,8 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
               <Collapsible defaultOpen className="group/templates">
                 <SidebarGroup className="mt-auto">
                   <SidebarGroupLabel render={
-                    <CollapsibleTrigger 
+                    <CollapsibleTrigger nativeButton={false} 
                       render={<div />} 
-                      nativeButton={false}
                       className="flex w-full items-center justify-between text-[10px] font-bold uppercase tracking-widest px-2 mb-1 group/tpl-label cursor-pointer hover:bg-accent/50 rounded transition-colors py-1"
                     />
                   }>
@@ -1026,9 +1025,8 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
               <Collapsible defaultOpen className="group/explore">
                 <SidebarGroup>
                   <SidebarGroupLabel render={
-                    <CollapsibleTrigger 
+                    <CollapsibleTrigger nativeButton={false} 
                       render={<div />} 
-                      nativeButton={false}
                       className="flex w-full items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 mb-1 group/exp-label cursor-pointer hover:bg-accent/50 rounded transition-colors py-1"
                     />
                   }>

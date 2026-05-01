@@ -12,8 +12,20 @@ import {
   getNoteContent,
   getTemplates,
   getTasksFromFolder,
-  toggleTask
+  toggleTask,
+  saveNoteWithProperties,
+  getDefaultProperties
 } from '@/lib/notes';
+
+export async function saveNoteWithPropertiesAction(slug: string, content: string, data: Record<string, any>) {
+  try {
+    await saveNoteWithProperties(slug, content, data);
+    return { success: true };
+  } catch (error) {
+    console.error('Action error saving note with properties:', error);
+    return { success: false, error: 'Failed to save note properties' };
+  }
+}
 
 export async function toggleTaskAction(noteSlug: string, line: number, checked: boolean) {
   try {
@@ -77,28 +89,39 @@ export async function createNoteAction(title: string, folder: string = '', templ
   try {
     const slug = path.join(folder, title);
     const isExcalidraw = title.toLowerCase().endsWith('.excalidraw');
-    
-    let content = '';
-    
+
     if (templateSlug) {
-      content = await getNoteContent(templateSlug);
+      const templateContent = await getNoteContent(templateSlug);
+      if (!isExcalidraw) {
+        const parsed = matter(templateContent);
+        const defaultProps = getDefaultProperties(title);
+        const updatedData = { ...defaultProps, ...parsed.data };
+        await saveNoteWithProperties(slug, parsed.content, updatedData);
+      } else {
+        await saveNoteToFs(slug, templateContent);
+      }
     } else {
-      content = isExcalidraw 
-        ? JSON.stringify({
-            type: "excalidraw",
-            version: 2,
-            source: "https://excalidraw.com",
-            elements: [],
-            appState: { viewBackgroundColor: "#121212" },
-            files: {},
-          })
-        : `# ${title}\n\n`;
+      if (isExcalidraw) {
+        const content = JSON.stringify({
+          type: "excalidraw",
+          version: 2,
+          source: "https://excalidraw.com",
+          elements: [],
+          appState: { viewBackgroundColor: "#121212" },
+          files: {},
+        });
+        await saveNoteToFs(slug, content);
+      } else {
+        const content = `# ${title}\n\n`;
+        const defaultProps = getDefaultProperties(title);
+        await saveNoteWithProperties(slug, content, defaultProps);
+      }
     }
-    
-    await saveNoteToFs(slug, content);
+
     revalidatePath('/');
     return { success: true, slug };
   } catch (error) {
+
     console.error('Action error creating note:', error);
     return { success: false, error: 'Failed to create note' };
   }
@@ -123,10 +146,12 @@ export async function createDailyNoteAction() {
     } catch {
       // Doesn't exist, create it
       const content = `# ${title}\n\n`;
-      await saveNoteToFs(slug, content);
+      const defaultProps = getDefaultProperties(title);
+      await saveNoteWithProperties(slug, content, defaultProps);
       revalidatePath('/');
-      return { success: true, slug, alreadyExists: false };
+      return { success: true, slug };
     }
+
   } catch (error) {
     console.error('Action error creating daily note:', error);
     return { success: false, error: 'Failed to create daily note' };

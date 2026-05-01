@@ -2,10 +2,11 @@
 
 import * as React from 'react';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { saveNoteAction, summarizeNoteAction, getTasksFromFolderAction, toggleTaskAction } from '@/app/actions';
+import { saveNoteAction, summarizeNoteAction, getTasksFromFolderAction, toggleTaskAction, saveNoteWithPropertiesAction } from '@/app/actions';
 import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/use-debounce';
 import { NoteMetadata, Task } from '@/lib/notes';
+import matter from 'gray-matter';
 import { useTabs } from './tabs-context';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -34,7 +35,10 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Settings2,
+  ChevronDown,
+  X
 } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -106,6 +110,136 @@ function Mermaid({ chart }: { chart: string }) {
       className="flex justify-center my-6 overflow-x-auto bg-black/10 rounded-xl p-4 min-h-[100px] items-center print:bg-transparent print:p-0 print:min-h-0" 
       dangerouslySetInnerHTML={{ __html: svg || '<div class="animate-pulse print:hidden">Rendering diagram...</div><div class="hidden print:block text-xs text-muted-foreground">Preparing diagram...</div>' }} 
     />
+  );
+}
+
+function PropertiesPanel({ 
+  slug, 
+  data, 
+  content, 
+  onUpdate 
+}: { 
+  slug: string; 
+  data: Record<string, any>; 
+  content: string;
+  onUpdate: (newData: Record<string, any>) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [localData, setLocalData] = useState(data);
+  const [newPropKey, setNewPropKey] = useState('');
+  const [isAddingProp, setIsAddingProp] = useState(false);
+
+  useEffect(() => {
+    setLocalData(data);
+  }, [data]);
+
+  const handleUpdateProperty = async (key: string, value: any) => {
+    const newData = { ...localData, [key]: value };
+    setLocalData(newData);
+    const res = await saveNoteWithPropertiesAction(slug, content, newData);
+    if (res.success) {
+      onUpdate(newData);
+    } else {
+      toast.error('Failed to save properties');
+    }
+  };
+
+  const handleDeleteProperty = async (key: string) => {
+    const { [key]: _, ...newData } = localData;
+    setLocalData(newData);
+    const res = await saveNoteWithPropertiesAction(slug, content, newData);
+    if (res.success) {
+      onUpdate(newData);
+    } else {
+      toast.error('Failed to delete property');
+    }
+  };
+
+  const handleConfirmAddProperty = () => {
+    if (newPropKey && !localData[newPropKey]) {
+      handleUpdateProperty(newPropKey, '');
+      setNewPropKey('');
+      setIsAddingProp(false);
+    } else if (localData[newPropKey]) {
+      toast.error('Property already exists');
+    }
+  };
+
+  const hasProperties = Object.keys(localData).length > 0;
+
+  return (
+    <div className="mb-6 border border-border/50 rounded-xl overflow-hidden bg-accent/5">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-2 flex items-center justify-between hover:bg-accent/10 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Properties</span>
+          {hasProperties && !isOpen && (
+            <div className="flex gap-1 ml-2">
+              {Object.keys(localData).slice(0, 3).map(k => (
+                <span key={k} className="px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-[9px] font-bold uppercase tracking-tight">{k}</span>
+              ))}
+              {Object.keys(localData).length > 3 && <span className="text-[9px] text-muted-foreground">+{Object.keys(localData).length - 3}</span>}
+            </div>
+          )}
+        </div>
+        <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", isOpen ? "" : "-rotate-90")} />
+      </button>
+
+      {isOpen && (
+        <div className={cn("p-4 space-y-3 bg-accent/5 border-t border-border/30")}>
+          {Object.entries(localData).map(([key, value]) => (
+            <div key={key} className="grid grid-cols-[120px_1fr_32px] gap-3 items-center group">
+              <span className="text-[11px] font-bold text-muted-foreground truncate uppercase tracking-wider" title={key}>{key}</span>
+              <input 
+                type="text" 
+                value={value || ''} 
+                onChange={(e) => setLocalData({ ...localData, [key]: e.target.value })}
+                onBlur={(e) => handleUpdateProperty(key, e.target.value)}
+                className="bg-background/50 border border-border/30 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary outline-none transition-all"
+              />
+              <button 
+                onClick={() => handleDeleteProperty(key)}
+                className="opacity-0 group-hover:opacity-100 p-1.5 rounded hover:bg-destructive/10 hover:text-destructive transition-all text-muted-foreground"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+
+          {isAddingProp ? (
+            <div className="grid grid-cols-[120px_1fr_32px] gap-3 items-center pt-1 animate-in fade-in slide-in-from-top-1">
+              <input 
+                autoFocus
+                type="text" 
+                placeholder="Name..."
+                value={newPropKey}
+                onChange={(e) => setNewPropKey(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleConfirmAddProperty()}
+                className="bg-background/50 border border-primary/30 rounded px-2 py-1 text-[11px] font-bold uppercase tracking-wider outline-none focus:border-primary/60"
+              />
+              <div className="text-[10px] text-muted-foreground italic">Press Enter to confirm</div>
+              <button 
+                onClick={() => setIsAddingProp(false)}
+                className="p-1.5 rounded hover:bg-accent transition-all text-muted-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={() => setIsAddingProp(true)}
+              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-primary/60 hover:text-primary transition-colors pt-1"
+            >
+              <Plus className="h-3 w-3" />
+              Add Property
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -246,12 +380,19 @@ interface EditorProps {
 
 export function Editor({ slug, initialContent, allNotes, graphData, backlinks: initialBacklinks, allTags, allMentions }: EditorProps) {
   const isCompact = useMediaQuery("(max-width: 1279px)");
+  
+  // Parse initial content for frontmatter
+  const parsed = useMemo(() => matter(initialContent), [initialContent]);
+  
   const [content, setContent] = useState(initialContent);
+  const [properties, setProperties] = useState(parsed.data);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryResult, setSummaryResult] = useState<string | null>(null);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   
+  const isExcalidraw = useMemo(() => decodeURIComponent(slug).toLowerCase().endsWith('.excalidraw'), [slug]);
+
   const handleSummarize = async (forceRegenerate: boolean = false) => {
     if (isSummarizing || !content) return;
 
@@ -298,7 +439,9 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
   }, [slug, openTab]);
 
   useEffect(() => {
+    const p = matter(initialContent);
     setContent(initialContent);
+    setProperties(p.data);
   }, [initialContent]);
 
   useEffect(() => {
@@ -322,11 +465,20 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
   }, [slug, isReadOnly]);
 
   const saveContent = useCallback(async (newContent: string) => {
-    const result = await saveNoteAction(slug, newContent);
-    if (!result.success) {
+    if (isExcalidraw) {
+       await saveNoteAction(slug, newContent);
+       return;
+    }
+    const result = await saveNoteWithPropertiesAction(slug, newContent, properties);
+    if (result.success) {
+      // The server updates last_updated, but we don't necessarily need to update 
+      // the local state immediately unless we want to show it.
+      // However, we should be aware that the local 'properties' state might 
+      // now be slightly out of sync with the file's 'last_updated'.
+    } else {
       toast.error('Failed to auto-save');
     }
-  }, [slug]);
+  }, [slug, properties, isExcalidraw]);
 
   useEffect(() => {
     if (debouncedContent !== initialContent && !isReadOnly) {
@@ -336,7 +488,8 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
 
   const viewContent = useMemo(() => {
     if (!content) return '';
-    let processed = content;
+    // Strip YAML frontmatter for preview only
+    let processed = content.replace(/^\s*---[\s\S]*?---\s*/, '');
 
     // If the current file is an excalidraw file, we handle it separately in the return
     if (decodeURIComponent(slug).toLowerCase().endsWith('.excalidraw')) {
@@ -554,8 +707,6 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
       </div>
     );
   };
-
-  const isExcalidraw = useMemo(() => decodeURIComponent(slug).toLowerCase().endsWith('.excalidraw'), [slug]);
 
   const toc = useMemo(() => {
     if (isExcalidraw) return [];
@@ -779,6 +930,12 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
                   <ExcalidrawEditor key={slug} slug={slug} initialContent={initialContent} />
                 ) : isReadOnly ? (
                   <div className="prose prose-sm dark:prose-invert max-w-none print:prose-headings:text-black print:prose-p:text-black">
+                    <PropertiesPanel 
+                      slug={slug} 
+                      data={properties} 
+                      content={content} 
+                      onUpdate={setProperties} 
+                    />
                     <ReactMarkdown 
                       remarkPlugins={[remarkGfm, remarkMath]}
                       rehypePlugins={[rehypeRaw, rehypeKatex, rehypeSlug]}

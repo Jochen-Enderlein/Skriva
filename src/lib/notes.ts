@@ -3,6 +3,7 @@ import fssync from 'fs';
 import path from 'path';
 import os from 'os';
 import Fuse from 'fuse.js';
+import matter from 'gray-matter';
 
 // Path to store the global configuration
 const GLOBAL_CONFIG_PATH = path.join(os.homedir(), '.skriva-config.json');
@@ -233,6 +234,45 @@ export async function saveNote(slug: string, content: string): Promise<void> {
     console.error('Error saving note:', error);
     throw new Error('Failed to save note');
   }
+}
+
+export async function saveNoteWithProperties(slug: string, content: string, data: Record<string, any>): Promise<void> {
+  try {
+    const notesBase = getNotesPath();
+    const filePath = getFilePathFromSlug(notesBase, slug);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    
+    const updatedData = {
+      ...data,
+      last_updated: new Date().toISOString()
+    };
+    
+    // Ensure content doesn't have duplicate frontmatter
+    const cleanContent = content.replace(/^\s*---[\s\S]*?---\s*/, '');
+    
+    const fileContent = matter.stringify(cleanContent, updatedData);
+    await fs.writeFile(filePath, fileContent, 'utf-8');
+  } catch (error) {
+    console.error('Error saving note with properties:', error);
+    throw new Error('Failed to save note with properties');
+  }
+}
+
+export function getDefaultProperties(title: string): Record<string, any> {
+  const now = new Date().toISOString();
+  let author = 'User';
+  try {
+    author = os.userInfo().username || 'User';
+  } catch (e) {
+    // ignore
+  }
+  
+  return {
+    title: title.replace(/\.(md|excalidraw)$/i, ''),
+    created: now,
+    last_updated: now,
+    author: author
+  };
 }
 
 export async function deleteFile(slug: string): Promise<void> {
