@@ -3,4 +3,5 @@ export interface NoteMetadata {
   slug: string;
   path: string;
   relativeDir: string;
+  lastUpdated?: string;
 }

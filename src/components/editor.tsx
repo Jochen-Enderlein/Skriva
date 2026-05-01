@@ -117,12 +117,16 @@ function PropertiesPanel({
   slug, 
   data, 
   content, 
-  onUpdate 
+  onUpdate,
+  onContentUpdate,
+  lastUpdated
 }: { 
   slug: string; 
   data: Record<string, any>; 
   content: string;
   onUpdate: (newData: Record<string, any>) => void;
+  onContentUpdate?: (newContent: string) => void;
+  lastUpdated?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [localData, setLocalData] = useState(data);
@@ -139,6 +143,10 @@ function PropertiesPanel({
     const res = await saveNoteWithPropertiesAction(slug, content, newData);
     if (res.success) {
       onUpdate(newData);
+      if (onContentUpdate) {
+        const cleanContent = content.replace(/^\s*---[\s\S]*?---\s*/, '');
+        onContentUpdate(matter.stringify(cleanContent, newData));
+      }
     } else {
       toast.error('Failed to save properties');
     }
@@ -150,6 +158,10 @@ function PropertiesPanel({
     const res = await saveNoteWithPropertiesAction(slug, content, newData);
     if (res.success) {
       onUpdate(newData);
+      if (onContentUpdate) {
+        const cleanContent = content.replace(/^\s*---[\s\S]*?---\s*/, '');
+        onContentUpdate(matter.stringify(cleanContent, newData));
+      }
     } else {
       toast.error('Failed to delete property');
     }
@@ -236,6 +248,13 @@ function PropertiesPanel({
               <Plus className="h-3 w-3" />
               Add Property
             </button>
+          )}
+
+          {lastUpdated && (
+            <div className="pt-2 mt-2 border-t border-border/20 flex justify-between items-center opacity-40">
+              <span className="text-[9px] font-bold uppercase tracking-widest">File Modified</span>
+              <span className="text-[9px] font-medium italic">{new Date(lastUpdated).toLocaleString()}</span>
+            </div>
           )}
         </div>
       )}
@@ -376,9 +395,10 @@ interface EditorProps {
   backlinks: any[];
   allTags: string[];
   allMentions: string[];
+  lastUpdated?: string;
 }
 
-export function Editor({ slug, initialContent, allNotes, graphData, backlinks: initialBacklinks, allTags, allMentions }: EditorProps) {
+export function Editor({ slug, initialContent, allNotes, graphData, backlinks: initialBacklinks, allTags, allMentions, lastUpdated: initialLastUpdated }: EditorProps) {
   const isCompact = useMediaQuery("(max-width: 1279px)");
   
   // Parse initial content for frontmatter
@@ -386,6 +406,7 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
   
   const [content, setContent] = useState(initialContent);
   const [properties, setProperties] = useState(parsed.data);
+  const [currentLastUpdated, setCurrentLastUpdated] = useState(initialLastUpdated);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryResult, setSummaryResult] = useState<string | null>(null);
@@ -442,7 +463,21 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
     const p = matter(initialContent);
     setContent(initialContent);
     setProperties(p.data);
-  }, [initialContent]);
+    setCurrentLastUpdated(initialLastUpdated);
+  }, [initialContent, initialLastUpdated]);
+
+  // Sync properties from content when content changes (to catch manual edits in YAML)
+  useEffect(() => {
+    try {
+      if (isExcalidraw) return;
+      const p = matter(content);
+      if (JSON.stringify(p.data) !== JSON.stringify(properties)) {
+        setProperties(p.data);
+      }
+    } catch (e) {
+      // Ignore parsing errors during typing
+    }
+  }, [content, properties, isExcalidraw]);
 
   useEffect(() => {
     const handleHashScroll = () => {
@@ -467,10 +502,12 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
   const saveContent = useCallback(async (newContent: string) => {
     if (isExcalidraw) {
        await saveNoteAction(slug, newContent);
+       setCurrentLastUpdated(new Date().toISOString());
        return;
     }
     const result = await saveNoteWithPropertiesAction(slug, newContent, properties);
     if (result.success) {
+      setCurrentLastUpdated(new Date().toISOString());
       // The server updates last_updated, but we don't necessarily need to update 
       // the local state immediately unless we want to show it.
       // However, we should be aware that the local 'properties' state might 
@@ -571,7 +608,7 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
     if (!view) return;
 
     const { state } = view;
-    const pos = forcedPos !== undefined ? forcedPos : state.selection.main.head;
+    const pos = (typeof forcedPos === 'number') ? forcedPos : state.selection.main.head;
     const line = state.doc.lineAt(pos);
     
     if (!line.text.includes('|')) {
@@ -881,7 +918,7 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
                     <FormatButton onClick={() => insertFormat('```\n', '\n```')} icon={Code} title="Code Block" />
                     <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
                     <FormatButton 
-                      onClick={openTableEditorAtCursor} 
+                      onClick={() => openTableEditorAtCursor()} 
                       icon={TableIcon} 
                       title="Insert or Edit Table" 
                     />
@@ -935,6 +972,8 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
                       data={properties} 
                       content={content} 
                       onUpdate={setProperties} 
+                      onContentUpdate={setContent}
+                      lastUpdated={currentLastUpdated}
                     />
                     <ReactMarkdown 
                       remarkPlugins={[remarkGfm, remarkMath]}

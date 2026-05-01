@@ -55,6 +55,7 @@ export interface NoteMetadata {
   slug: string;
   path: string;
   relativeDir: string;
+  lastUpdated?: string;
 }
 
 export interface Task {
@@ -133,6 +134,8 @@ export async function getNotes(dir: string = '', includeTemplates: boolean = fal
       if (!includeTemplates && entry.name === '.templates' && dir === '') continue;
       
       const relativePath = path.join(dir, entry.name);
+      const fullEntryPath = path.join(fullPath, entry.name);
+
       if (entry.isDirectory()) {
         const subNotes = await getNotes(relativePath, includeTemplates);
         notes = [...notes, ...subNotes];
@@ -140,11 +143,21 @@ export async function getNotes(dir: string = '', includeTemplates: boolean = fal
         const isExcalidraw = entry.name.endsWith('.excalidraw');
         const title = isExcalidraw ? entry.name : entry.name.replace(/\.md$/, '');
         const slug = path.join(dir, isExcalidraw ? entry.name : title);
+        
+        let lastUpdated;
+        try {
+          const stats = fssync.statSync(fullEntryPath);
+          lastUpdated = stats.mtime.toISOString();
+        } catch (e) {
+          // ignore
+        }
+
         notes.push({
           title,
           slug,
           path: entry.name,
           relativeDir: dir,
+          lastUpdated,
         });
       }
     }
@@ -222,6 +235,19 @@ export async function getNoteContent(slug: string): Promise<string> {
   }
 }
 
+/**
+ * Returns content and filesystem modification time
+ */
+export async function getNoteWithStats(slug: string): Promise<{ content: string, lastUpdated: string }> {
+  const notesBase = getNotesPath();
+  const filePath = getFilePathFromSlug(notesBase, slug);
+  const [content, stats] = await Promise.all([
+    fs.readFile(filePath, 'utf-8'),
+    fs.stat(filePath)
+  ]);
+  return { content, lastUpdated: stats.mtime.toISOString() };
+}
+
 export async function saveNote(slug: string, content: string): Promise<void> {
   try {
     const notesBase = getNotesPath();
@@ -242,15 +268,10 @@ export async function saveNoteWithProperties(slug: string, content: string, data
     const filePath = getFilePathFromSlug(notesBase, slug);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     
-    const updatedData = {
-      ...data,
-      last_updated: new Date().toISOString()
-    };
-    
     // Ensure content doesn't have duplicate frontmatter
     const cleanContent = content.replace(/^\s*---[\s\S]*?---\s*/, '');
     
-    const fileContent = matter.stringify(cleanContent, updatedData);
+    const fileContent = matter.stringify(cleanContent, data);
     await fs.writeFile(filePath, fileContent, 'utf-8');
   } catch (error) {
     console.error('Error saving note with properties:', error);

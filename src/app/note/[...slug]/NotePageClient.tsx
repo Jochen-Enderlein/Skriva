@@ -18,6 +18,7 @@ export default function NotePageClient() {
     notes: NoteMetadata[];
     folders: string[];
     content: string;
+    lastUpdated?: string;
     backlinks: any[];
     graphData: any;
     tags: string[];
@@ -60,6 +61,7 @@ export default function NotePageClient() {
               notes: [],
               folders: [],
               content: contentRes.content || '',
+              lastUpdated: contentRes.lastUpdated,
               graphData: { nodes: [], links: [] },
               tags: [],
               mentions: [],
@@ -90,6 +92,7 @@ export default function NotePageClient() {
       <Editor 
         slug={slug} 
         initialContent={data.content} 
+        lastUpdated={data.lastUpdated}
         allNotes={data.notes} 
         graphData={data.graphData} 
         backlinks={data.backlinks} 

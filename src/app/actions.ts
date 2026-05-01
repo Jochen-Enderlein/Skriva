@@ -63,8 +63,9 @@ const NOTES_PATH = path.join(process.cwd(), 'assets/notes');
 
 export async function getNoteContentAction(slug: string) {
   try {
-    const content = await getNoteContent(slug);
-    return { success: true, content };
+    const { getNoteWithStats } = await import('@/lib/notes');
+    const { content, lastUpdated } = await getNoteWithStats(slug);
+    return { success: true, content, lastUpdated };
   } catch (error) {
     console.error('Action error getting note content:', error);
     return { success: false, error: 'Failed to get note content' };
