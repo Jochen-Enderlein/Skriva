@@ -22,6 +22,7 @@ declare global {
       getGraphData: () => Promise<any>;
       getTags: () => Promise<any[]>;
       getMentions: () => Promise<any[]>;
+      getProjects: () => Promise<any[]>;
       getTemplates: () => Promise<NoteMetadata[]>;
       getBacklinks: (title: string) => Promise<any[]>;
       searchNotes: (query: string) => Promise<any[]>;

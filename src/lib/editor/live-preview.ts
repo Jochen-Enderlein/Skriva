@@ -4,6 +4,7 @@ import {
   EditorView, 
   ViewPlugin, 
   ViewUpdate,
+  MatchDecorator,
   WidgetType
 } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
@@ -178,6 +179,27 @@ export const livePreviewTheme = EditorView.baseTheme({
     borderBottomLeftRadius: "6px",
     borderBottomRightRadius: "6px",
     paddingBottom: "0.4em"
+  },
+  ".cm-chip": {
+    display: "inline-block",
+    padding: "0 6px",
+    borderRadius: "12px",
+    fontSize: "0.85em",
+    fontWeight: "500",
+    margin: "0 2px",
+    verticalAlign: "baseline"
+  },
+  ".cm-chip-tag": {
+    backgroundColor: "rgba(168, 85, 247, 0.15)",
+    color: "#a855f7",
+  },
+  ".cm-chip-mention": {
+    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    color: "#f59e0b",
+  },
+  ".cm-chip-project": {
+    backgroundColor: "rgba(16, 185, 129, 0.15)",
+    color: "#10b981",
   },
   ".cm-bold": { fontWeight: "bold", color: "var(--foreground)" },
   ".cm-italic": { fontStyle: "italic" },

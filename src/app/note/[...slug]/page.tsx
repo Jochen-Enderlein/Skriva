@@ -1,4 +1,4 @@
-import { getNoteContent, getNotes, getBacklinks, getFolders, getGraphData, getTags, getMentions } from "@/lib/notes";
+import { getNoteContent, getNotes, getBacklinks, getFolders, getGraphData, getTags, getMentions, getProjects } from "@/lib/notes";
 import { Editor } from "@/components/editor";
 import { LayoutWrapper } from "@/components/layout-wrapper";
 import { redirect } from "next/navigation";
@@ -25,6 +25,7 @@ export default async function NotePage({ params }: { params: Promise<{ slug: str
     const graphData = await getGraphData();
     const tags = await getTags();
     const mentions = await getMentions();
+    const projects = await getProjects();
 
     return (
       <LayoutWrapper notes={notes} folders={folders}>
@@ -36,7 +37,9 @@ export default async function NotePage({ params }: { params: Promise<{ slug: str
           backlinks={backlinks}
           allTags={tags.map(t => t.tag)}
           allMentions={mentions.map(m => m.mention)}
-        />      </LayoutWrapper>
+          allProjects={projects.map(p => p.project)}
+        />
+      </LayoutWrapper>
     );
   } catch (error) {
     console.error(error);

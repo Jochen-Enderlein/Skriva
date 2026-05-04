@@ -256,6 +256,7 @@ export async function saveNote(slug: string, content: string): Promise<void> {
     // Ensure directory exists
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content, 'utf-8');
+    invalidateSearchCache();
   } catch (error) {
     console.error('Error saving note:', error);
     throw new Error('Failed to save note');
@@ -271,8 +272,23 @@ export async function saveNoteWithProperties(slug: string, content: string, data
     // Ensure content doesn't have duplicate frontmatter
     const cleanContent = content.replace(/^\s*---[\s\S]*?---\s*/, '');
     
-    const fileContent = matter.stringify(cleanContent, data);
+    // Extract tags from content
+    const tagRegex = /(?:^|\s)#(\w+)/g;
+    const tags = new Set<string>();
+    let match;
+    while ((match = tagRegex.exec(cleanContent)) !== null) {
+      tags.add(match[1]);
+    }
+    
+    const updatedData = {
+      ...data,
+      tags: Array.from(tags).map(t => `#${t}`).join(' '),
+      project: data.project || ''
+    };
+    
+    const fileContent = matter.stringify(cleanContent, updatedData);
     await fs.writeFile(filePath, fileContent, 'utf-8');
+    invalidateSearchCache();
   } catch (error) {
     console.error('Error saving note with properties:', error);
     throw new Error('Failed to save note with properties');
@@ -292,7 +308,9 @@ export function getDefaultProperties(title: string): Record<string, any> {
     title: title.replace(/\.(md|excalidraw)$/i, ''),
     created: now,
     last_updated: now,
-    author: author
+    author: author,
+    project: '',
+    tags: []
   };
 }
 
@@ -300,12 +318,14 @@ export async function deleteFile(slug: string): Promise<void> {
   const notesBase = getNotesPath();
   const filePath = getFilePathFromSlug(notesBase, slug);
   await fs.unlink(filePath);
+  invalidateSearchCache();
 }
 
 export async function deleteFolder(folderPath: string): Promise<void> {
   const notesBase = getNotesPath();
   const fullPath = path.join(notesBase, folderPath);
   await fs.rm(fullPath, { recursive: true, force: true });
+  invalidateSearchCache();
 }
 
 export async function moveItem(oldSlug: string, newSlug: string): Promise<void> {
@@ -314,6 +334,7 @@ export async function moveItem(oldSlug: string, newSlug: string): Promise<void> 
   const newPath = getFilePathFromSlug(notesBase, newSlug);
   await fs.mkdir(path.dirname(newPath), { recursive: true });
   await fs.rename(oldPath, newPath);
+  invalidateSearchCache();
 }
 
 export async function moveFolder(oldPath: string, newPath: string): Promise<void> {
@@ -322,31 +343,72 @@ export async function moveFolder(oldPath: string, newPath: string): Promise<void
   const fullNewPath = path.join(notesBase, newPath);
   await fs.mkdir(path.dirname(fullNewPath), { recursive: true });
   await fs.rename(fullOldPath, fullNewPath);
+  invalidateSearchCache();
 }
 
-export async function searchNotes(query: string): Promise<{ slug: string; title: string; snippet: string }[]> {
-  const notes = await getNotes();
-  const searchData: { slug: string; title: string; content: string }[] = [];
+// In-memory cache for search data to avoid repeated file reads
+let searchCache: {
+  notes: { slug: string; title: string; content: string; properties: string }[];
+  lastIndexed: number;
+} | null = null;
 
-  for (const note of notes) {
-    try {
-      const content = await getNoteContent(note.slug);
-      const plainText = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-      searchData.push({
-        slug: note.slug,
-        title: note.title,
-        content: plainText
-      });
-    } catch (e) {
-      // Skip notes that can't be read
+const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+
+export async function searchNotes(query: string): Promise<{ slug: string; title: string; snippet: string }[]> {
+  const notesBase = getNotesPath();
+  
+  // Refresh cache if needed
+  if (!searchCache || Date.now() - searchCache.lastIndexed > CACHE_TTL) {
+    const allNotes = await getNotes('', true); // true to include templates
+    const searchData: { slug: string; title: string; content: string; properties: string }[] = [];
+
+    for (const note of allNotes) {
+      try {
+        const rawContent = await getNoteContent(note.slug);
+        const { data, content } = matter(rawContent);
+
+        // Convert properties to a searchable string
+        const propertiesString = Object.entries(data)
+          .map(([key, value]) => {
+            if (Array.isArray(value)) return `${key}: ${value.join(' ')}`;
+            return `${key}: ${value}`;
+          })
+          .join(' | ');
+
+        // Better plain text extraction
+        const plainText = content
+          .replace(/\[\[(.*?)\]\]/g, '$1')
+          .replace(/[`*~_]/g, '') 
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        searchData.push({
+          slug: note.slug,
+          title: note.title,
+          content: plainText,
+          properties: propertiesString
+        });
+        console.log(`Indexed note: ${note.slug}, properties: "${propertiesString}"`);
+      } catch (e) {
+        console.error(`Failed to index note ${note.slug}:`, e);
+      }
     }
+    searchCache = {
+      notes: searchData,
+      lastIndexed: Date.now()
+    };
   }
 
-  const fuse = new Fuse(searchData, {
-    keys: ['title', 'content'],
-    threshold: 0.4,
+  const fuse = new Fuse(searchCache.notes, {
+    keys: [
+      { name: 'title', weight: 0.4 },
+      { name: 'properties', weight: 0.4 },
+      { name: 'content', weight: 0.2 }
+    ],
+    threshold: 0.3,
     includeMatches: true,
     minMatchCharLength: 2,
+    shouldSort: true,
   });
 
   const fuseResults = fuse.search(query);
@@ -355,15 +417,28 @@ export async function searchNotes(query: string): Promise<{ slug: string; title:
     const { item, matches } = result;
     let snippet = '';
     
-    // Find a snippet from content if possible
+    // Check for property matches first to show them in snippet
+    const propMatch = matches?.find(m => m.key === 'properties');
     const contentMatch = matches?.find(m => m.key === 'content');
-    if (contentMatch && contentMatch.indices.length > 0) {
+
+    if (propMatch && propMatch.indices.length > 0) {
+      const [start, end] = propMatch.indices[0];
+      const snippetStart = Math.max(0, start - 20);
+      const snippetEnd = Math.min(item.properties.length, end + 40);
+      snippet = `Property: ${item.properties.substring(snippetStart, snippetEnd).trim()}`;
+      if (snippetStart > 0) snippet = '...' + snippet;
+      if (snippetEnd < item.properties.length) snippet = snippet + '...';
+    } else if (contentMatch && contentMatch.indices.length > 0) {
       const [start, end] = contentMatch.indices[0];
-      const snippetStart = Math.max(0, start - 40);
-      const snippetEnd = Math.min(item.content.length, end + 40);
-      snippet = `...${item.content.substring(snippetStart, snippetEnd).trim()}...`;
+      const contextAround = 60;
+      const snippetStart = Math.max(0, start - contextAround);
+      const snippetEnd = Math.min(item.content.length, end + contextAround);
+      
+      snippet = item.content.substring(snippetStart, snippetEnd).trim();
+      if (snippetStart > 0) snippet = '...' + snippet;
+      if (snippetEnd < item.content.length) snippet = snippet + '...';
     } else {
-      snippet = item.content.substring(0, 80).trim() + '...';
+      snippet = item.content.substring(0, 120).trim() + '...';
     }
 
     return {
@@ -372,6 +447,11 @@ export async function searchNotes(query: string): Promise<{ slug: string; title:
       snippet
     };
   });
+}
+
+// Clear cache when notes are modified
+export function invalidateSearchCache() {
+  searchCache = null;
 }
 
 export async function getBacklinks(targetTitle: string): Promise<{ title: string; slug: string; snippet: string }[]> {
@@ -439,6 +519,15 @@ export async function getGraphData(): Promise<{ nodes: { id: string; title: stri
       mentionsFound.add(mentionName);
       links.push({ source: note.slug, target: mentionId });
     }
+
+    const projectRegex = /!(\w+)/g;
+    let projectMatch;
+    while ((projectMatch = projectRegex.exec(content)) !== null) {
+      const projectName = projectMatch[1];
+      const projectId = `project:${projectName}`;
+      links.push({ source: note.slug, target: projectId });
+      // We'll collect projects globally below similar to tags
+    }
   }
 
   tagsFound.forEach(tag => {
@@ -449,7 +538,33 @@ export async function getGraphData(): Promise<{ nodes: { id: string; title: stri
     nodes.push({ id: `mention:${mention}`, title: `@${mention}`, type: 'mention' });
   });
 
+  // Collect all projects to add them as nodes
+  const projects = await getProjects();
+  projects.forEach(p => {
+    nodes.push({ id: `project:${p.project}`, title: `!${p.project}`, type: 'project' as any });
+  });
+
   return { nodes, links };
+}
+
+export async function getProjects(): Promise<{ project: string; count: number }[]> {
+  const notes = await getNotes();
+  const projectCounts: Record<string, number> = {};
+
+  for (const note of notes) {
+    const content = await getNoteContent(note.slug);
+    const projectRegex = /!(\w+)/g;
+    let match;
+    
+    while ((match = projectRegex.exec(content)) !== null) {
+      const project = match[1];
+      projectCounts[project] = (projectCounts[project] || 0) + 1;
+    }
+  }
+
+  return Object.entries(projectCounts)
+    .map(([project, count]) => ({ project, count }))
+    .sort((a, b) => b.count - a.count);
 }
 
 export async function getTags(): Promise<{ tag: string; count: number }[]> {

@@ -23,6 +23,7 @@ export default function NotePageClient() {
     graphData: any;
     tags: string[];
     mentions: string[];
+    projects: string[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -35,13 +36,14 @@ export default function NotePageClient() {
       try {
         const electron = window.electron;
         if (electron) {
-          const [notes, folders, content, graphData, tags, mentions, backlinks] = await Promise.all([
+          const [notes, folders, content, graphData, tags, mentions, projects, backlinks] = await Promise.all([
             electron.getNotes('', true),
             electron.getFolders(''),
             electron.getNoteContent(slug),
             electron.getGraphData(),
             electron.getTags(),
             electron.getMentions(),
+            electron.getProjects(),
             electron.getBacklinks(decodeURIComponent(slug).split('/').pop() || '')
           ]);
 
@@ -52,6 +54,7 @@ export default function NotePageClient() {
             graphData,
             tags: tags.map((t: any) => t.tag),
             mentions: mentions.map((m: any) => m.mention),
+            projects: projects.map((p: any) => p.project),
             backlinks
           });
           } else {
@@ -65,6 +68,7 @@ export default function NotePageClient() {
               graphData: { nodes: [], links: [] },
               tags: [],
               mentions: [],
+              projects: [],
               backlinks: []
             });          }
         }
@@ -98,6 +102,7 @@ export default function NotePageClient() {
         backlinks={data.backlinks} 
         allTags={data.tags}
         allMentions={data.mentions}
+        allProjects={data.projects}
       />
     </LayoutWrapper>
   );

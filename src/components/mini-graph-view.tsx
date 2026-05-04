@@ -12,7 +12,7 @@ const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
 interface Node {
   id: string;
   title: string;
-  type: 'note' | 'tag' | 'mention';
+  type: 'note' | 'tag' | 'mention' | 'project';
   x?: number;
   y?: number;
 }
@@ -121,6 +121,18 @@ export function MiniGraphView({ currentSlug, currentContent, globalData }: MiniG
       tags.push({ source: currentSlug, target: mentionId });
     }
 
+    // Projects !project
+    const projectRegex = /(?:^|\s)!([a-zA-Z0-9_]+)/g;
+    let projectMatch;
+    while ((projectMatch = projectRegex.exec(currentContent)) !== null) {
+      const projectName = projectMatch[1];
+      const projectId = `project:${projectName}`;
+      if (!nodesMap.has(projectId)) {
+        nodesMap.set(projectId, { id: projectId, title: `!${projectName}`, type: 'project' });
+      }
+      tags.push({ source: currentSlug, target: projectId });
+    }
+
     // Collect all relevant node IDs
     const relevantNodeIds = new Set<string>();
     relevantNodeIds.add(currentSlug);
@@ -179,8 +191,16 @@ export function MiniGraphView({ currentSlug, currentContent, globalData }: MiniG
 
                 // Draw node circle
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, node.type === 'tag' || node.type === 'mention' ? 2 : (isCurrent ? 4 : 3), 0, 2 * Math.PI, false);
-                ctx.fillStyle = node.type === 'tag' ? '#a855f7' : (node.type === 'mention' ? '#f59e0b' : (isCurrent ? '#10b981' : '#3b82f6'));
+                ctx.arc(node.x, node.y, node.type === 'tag' || node.type === 'mention' || node.type === 'project' ? 2 : (isCurrent ? 4 : 3), 0, 2 * Math.PI, false);
+                
+                const colors: Record<string, string> = {
+                  tag: '#a855f7',
+                  mention: '#f59e0b',
+                  project: '#10b981',
+                  note: isCurrent ? '#10b981' : '#3b82f6'
+                };
+                
+                ctx.fillStyle = colors[node.type] || colors.note;
                 ctx.fill();
 
                 // Label
@@ -197,7 +217,14 @@ export function MiniGraphView({ currentSlug, currentContent, globalData }: MiniG
 
                   ctx.textAlign = 'center';
                   ctx.textBaseline = 'top';
-                  ctx.fillStyle = node.type === 'tag' ? '#a855f7' : (node.type === 'mention' ? '#f59e0b' : (isCurrent ? '#10b981' : (isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.7)')));
+                  
+                  const textColors: Record<string, string> = {
+                    tag: '#a855f7',
+                    mention: '#f59e0b',
+                    project: '#10b981'
+                  };
+                  
+                  ctx.fillStyle = textColors[node.type] || (isCurrent ? '#10b981' : (isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.7)'));
                   ctx.fillText(label, node.x, node.y + 6);
                 }
               }}

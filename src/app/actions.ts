@@ -16,6 +16,7 @@ import {
   saveNoteWithProperties,
   getDefaultProperties
 } from '@/lib/notes';
+import matter from 'gray-matter';
 
 export async function saveNoteWithPropertiesAction(slug: string, content: string, data: Record<string, any>) {
   try {
@@ -269,6 +270,17 @@ export async function importItemsAction(paths: string[], targetFolder: string = 
   } catch (error) {
     console.error('Action error importing items:', error);
     return { success: false, error: 'Failed to import items' };
+  }
+}
+
+export async function getProjectsAction() {
+  try {
+    const { getProjects } = await import('@/lib/notes');
+    const projects = await getProjects();
+    return { success: true, projects };
+  } catch (error) {
+    console.error('Action error getting projects:', error);
+    return { success: false, error: 'Failed to get projects' };
   }
 }
 

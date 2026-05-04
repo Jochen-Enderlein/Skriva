@@ -26,12 +26,3 @@ npm install
 npm run electron:dev
 ```
 
-## Features
-
-### Dynamische Task-Listen
-Mit der Syntax `--[]--` kannst du automatisch alle Checkboxen aus dem aktuellen Ordner und allen Unterordnern in einer interaktiven Vorschau anzeigen.
-
-- **Verwendung:** Schreibe `--[]--` in eine eigene Zeile in deiner Notiz.
-- **Interaktiv:** Checkboxen können direkt in der Vorschau abgehakt werden. Die Änderungen werden sofort in die ursprünglichen Dateien zurückgeschrieben.
-- **Sortierung:** Offene Aufgaben werden automatisch oben angezeigt.
-- **Navigation:** Ein Klick auf den Notiz-Titel unter einer Aufgabe bringt dich direkt zur entsprechenden Datei.

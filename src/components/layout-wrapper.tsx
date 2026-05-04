@@ -45,7 +45,8 @@ import {
   AlertCircle,
   CheckCircle2,
   AlertTriangle,
-  Settings
+  Settings,
+  Briefcase
   } from "lucide-react";
   import Link from "next/link";
   import { usePathname, useRouter } from "next/navigation";
@@ -80,6 +81,52 @@ import {
   import rehypeRaw from 'rehype-raw';
   import rehypeKatex from 'rehype-katex';
   import 'katex/dist/katex.min.css';
+
+const remarkChips = () => {
+  return (tree: any) => {
+    const visit = (node: any, parent: any, index: number) => {
+      if (node.type === 'code' || node.type === 'inlineCode') return 1;
+      if (node.type === 'text') {
+        const text = node.value;
+        const regex = /(\s*[#@!]\w+)/g;
+        if (regex.test(text)) {
+          const parts = text.split(regex);
+          const newNodes = parts.map((part: string) => {
+            const match = part.match(/^(\s*)([#@!])(\w+)$/);
+            if (match) {
+              const [_, space, prefix, name] = match;
+              const type = prefix === '#' ? 'tag' : prefix === '@' ? 'mention' : 'project';
+              let className = "inline-flex items-center rounded-md px-1.5 py-0.5 text-[12px] font-bold ring-1 ring-inset transition-colors cursor-pointer mx-0.5 ";
+              if (type === 'tag') className += "bg-[#a855f7]/15 text-[#a855f7] ring-[#a855f7]/25 hover:bg-[#a855f7]/25";
+              else if (type === 'mention') className += "bg-[#f59e0b]/15 text-[#f59e0b] ring-[#f59e0b]/25 hover:bg-[#f59e0b]/25";
+              else if (type === 'project') className += "bg-[#10b981]/15 text-[#10b981] ring-[#10b981]/25 hover:bg-[#10b981]/25";
+              
+              return {
+                type: 'html',
+                value: `${space}<span class="${className}">${prefix}${name}</span>`
+              };
+            }
+            return { type: 'text', value: part };
+          }).filter((n: any) => n.value !== '');
+          
+          if (parent && parent.children) {
+            parent.children.splice(index, 1, ...newNodes);
+            return newNodes.length;
+          }
+        }
+      }
+      if (node.children) {
+        let i = 0;
+        while (i < node.children.length) {
+          const skip = visit(node.children[i], node, i);
+          i += (skip || 1);
+        }
+      }
+      return 1;
+    };
+    visit(tree, null, 0);
+  };
+};
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -154,6 +201,11 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [readmeContent, setReadmeContent] = React.useState('');
   const [folderConfigs, setFolderConfigs] = React.useState<Record<string, { color: string, mode: 'text' | 'bg' }>>({});
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -701,6 +753,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
     if (pathname === '/graph') return 'Graph View';
     if (pathname === '/tags') return 'Tags';
     if (pathname === '/mentions') return 'Mentions';
+    if (pathname === '/projects') return 'Projects';
     if (pathname.startsWith('/note/')) {
       const parts = pathname.split('/');
       return decodeURIComponent(parts[parts.length - 1]);
@@ -709,11 +762,11 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
   }, [pathname]);
 
   const isMac = React.useMemo(() => {
-    return typeof window !== 'undefined' && window.electron?.platform === 'darwin';
-  }, []);
+    return mounted && typeof window !== 'undefined' && window.electron?.platform === 'darwin';
+  }, [mounted]);
 
   const WindowControls = () => {
-    if (typeof window === 'undefined' || !window.electron || isMac) return null;
+    if (!mounted || typeof window === 'undefined' || !window.electron || isMac) return null;
 
     return (
       <div className="flex items-center no-drag ml-2 border-l border-border pl-2">
@@ -1058,6 +1111,11 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>
+                          <SidebarMenuButton render={<Link href="/projects" className="text-inherit!" />} isActive={pathname === '/projects'} tooltip="Projects" className="hover:bg-accent data-[active=true]:bg-accent">
+                            <Briefcase className="h-4 w-4 opacity-50" /><span className="font-medium text-[13px]">Projects</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
                           <SidebarMenuButton render={<Link href="/graph" className="text-inherit!" />} isActive={pathname === '/graph'} tooltip="Graph View" className="hover:bg-accent data-[active=true]:bg-accent">
                             <Share2 className="h-4 w-4 opacity-50" /><span className="font-medium text-[13px]">Graph View</span>
                           </SidebarMenuButton>
@@ -1120,7 +1178,7 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                 </DialogTitle>
               </DialogHeader>
               <div className="flex-1 overflow-y-auto px-6 py-4 prose prose-invert prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath, remarkChips]} rehypePlugins={[rehypeRaw, rehypeKatex]}>
                   {readmeContent}
                 </ReactMarkdown>
               </div>
@@ -1200,6 +1258,10 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
                 <div className="grid grid-cols-[80px_1fr] gap-2 items-center border-b border-border pb-3">
                   <kbd className="px-2 py-1 bg-muted rounded border border-border text-center font-mono font-bold text-primary">@</kbd>
                   <span>Mentions: Reference people</span>
+                </div>
+                <div className="grid grid-cols-[80px_1fr] gap-2 items-center border-b border-border pb-3">
+                  <kbd className="px-2 py-1 bg-muted rounded border border-border text-center font-mono font-bold text-primary">!</kbd>
+                  <span>Projects: Link to a project</span>
                 </div>
                 <div className="grid grid-cols-[80px_1fr] gap-2 items-center border-b border-border pb-3">
                   <kbd className="px-2 py-1 bg-muted rounded border border-border text-center font-mono font-bold text-primary">/</kbd>

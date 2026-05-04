@@ -19,6 +19,53 @@ import rehypeKatex from 'rehype-katex';
 import rehypeSlug from 'rehype-slug';
 import 'katex/dist/katex.min.css';
 import Link from 'next/link';
+
+const remarkChips = () => {
+  return (tree: any) => {
+    const visit = (node: any, parent: any, index: number) => {
+      if (node.type === 'code' || node.type === 'inlineCode') return 1;
+      if (node.type === 'text') {
+        const text = node.value;
+        const regex = /(\s*[#@!]\w+)/g;
+        if (regex.test(text)) {
+          const parts = text.split(regex);
+          const newNodes = parts.map((part: string) => {
+            const match = part.match(/^(\s*)([#@!])(\w+)$/);
+            if (match) {
+              const [_, space, prefix, name] = match;
+              const type = prefix === '#' ? 'tag' : prefix === '@' ? 'mention' : 'project';
+              let className = "inline-flex items-center rounded-md px-1.5 py-0.5 text-[12px] font-bold ring-1 ring-inset transition-colors cursor-pointer mx-0.5 ";
+              if (type === 'tag') className += "bg-[#a855f7]/15 text-[#a855f7] ring-[#a855f7]/25 hover:bg-[#a855f7]/25";
+              else if (type === 'mention') className += "bg-[#f59e0b]/15 text-[#f59e0b] ring-[#f59e0b]/25 hover:bg-[#f59e0b]/25";
+              else if (type === 'project') className += "bg-[#10b981]/15 text-[#10b981] ring-[#10b981]/25 hover:bg-[#10b981]/25";
+              
+              return {
+                type: 'html',
+                value: `${space}<span class="${className}">${prefix}${name}</span>`
+              };
+            }
+            return { type: 'text', value: part };
+          }).filter((n: any) => n.value !== '');
+          
+          if (parent && parent.children) {
+            parent.children.splice(index, 1, ...newNodes);
+            return newNodes.length;
+          }
+        }
+      }
+      if (node.children) {
+        let i = 0;
+        while (i < node.children.length) {
+          const skip = visit(node.children[i], node, i);
+          i += (skip || 1);
+        }
+      }
+      return 1;
+    };
+    visit(tree, null, 0);
+  };
+};
+
 import { 
   Bold, 
   Italic, 
@@ -109,6 +156,59 @@ function Mermaid({ chart }: { chart: string }) {
       data-rendering={isRendering ? "true" : "false"}
       className="flex justify-center my-6 overflow-x-auto bg-black/10 rounded-xl p-4 min-h-[100px] items-center print:bg-transparent print:p-0 print:min-h-0" 
       dangerouslySetInnerHTML={{ __html: svg || '<div class="animate-pulse print:hidden">Rendering diagram...</div><div class="hidden print:block text-xs text-muted-foreground">Preparing diagram...</div>' }} 
+    />
+  );
+}
+
+function PropertyValue({ 
+  keyName, 
+  value, 
+  onChange, 
+  onBlur 
+}: { 
+  keyName: string; 
+  value: any; 
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; 
+  onBlur: (e: React.FocusEvent<HTMLInputElement>) => void; 
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const isChipType = keyName === 'tags' || keyName === 'project' || keyName === 'mentions';
+
+  if (!isEditing && isChipType && typeof value === 'string' && value.trim().length > 0) {
+    const parts = value.split(/(\s*[#@!]\w+)/g);
+    return (
+      <div 
+        className="bg-background/50 border border-border/30 rounded px-2 py-1 text-xs cursor-text min-h-[26px] flex items-center flex-wrap"
+        onClick={() => setIsEditing(true)}
+      >
+        {parts.map((part: string, i: number) => {
+          const match = part.match(/^(\s*)([#@!])(\w+)$/);
+          if (match) {
+            const [_, space, prefix, name] = match;
+            const type = prefix === '#' ? 'tag' : prefix === '@' ? 'mention' : 'project';
+            let className = "inline-flex items-center rounded px-1 py-0 text-[10px] font-bold ring-1 ring-inset transition-colors mx-0.5 ";
+            if (type === 'tag') className += "bg-[#a855f7]/15 text-[#a855f7] ring-[#a855f7]/25";
+            else if (type === 'mention') className += "bg-[#f59e0b]/15 text-[#f59e0b] ring-[#f59e0b]/25";
+            else if (type === 'project') className += "bg-[#10b981]/15 text-[#10b981] ring-[#10b981]/25";
+            return <span key={i}>{space}<span className={className}>{prefix}{name}</span></span>;
+          }
+          return <span key={i}>{part}</span>;
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <input 
+      autoFocus={isEditing}
+      type="text" 
+      value={value || ''} 
+      onChange={onChange}
+      onBlur={(e) => {
+        setIsEditing(false);
+        onBlur(e);
+      }}
+      className="bg-background/50 border border-border/30 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary outline-none transition-all w-full"
     />
   );
 }
@@ -205,12 +305,11 @@ function PropertiesPanel({
           {Object.entries(localData).map(([key, value]) => (
             <div key={key} className="grid grid-cols-[120px_1fr_32px] gap-3 items-center group">
               <span className="text-[11px] font-bold text-muted-foreground truncate uppercase tracking-wider" title={key}>{key}</span>
-              <input 
-                type="text" 
-                value={value || ''} 
+              <PropertyValue 
+                keyName={key}
+                value={value}
                 onChange={(e) => setLocalData({ ...localData, [key]: e.target.value })}
                 onBlur={(e) => handleUpdateProperty(key, e.target.value)}
-                className="bg-background/50 border border-border/30 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary outline-none transition-all"
               />
               <button 
                 onClick={() => handleDeleteProperty(key)}
@@ -395,10 +494,11 @@ interface EditorProps {
   backlinks: any[];
   allTags: string[];
   allMentions: string[];
+  allProjects: string[];
   lastUpdated?: string;
 }
 
-export function Editor({ slug, initialContent, allNotes, graphData, backlinks: initialBacklinks, allTags, allMentions, lastUpdated: initialLastUpdated }: EditorProps) {
+export function Editor({ slug, initialContent, allNotes, graphData, backlinks: initialBacklinks, allTags, allMentions, allProjects, lastUpdated: initialLastUpdated }: EditorProps) {
   const isCompact = useMediaQuery("(max-width: 1279px)");
   
   // Parse initial content for frontmatter
@@ -466,18 +566,41 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
     setCurrentLastUpdated(initialLastUpdated);
   }, [initialContent, initialLastUpdated]);
 
-  // Sync properties from content when content changes (to catch manual edits in YAML)
+  // Sync properties from content and auto-extract tags
   useEffect(() => {
     try {
       if (isExcalidraw) return;
-      const p = matter(content);
-      if (JSON.stringify(p.data) !== JSON.stringify(properties)) {
-        setProperties(p.data);
+      
+      const { data, content: body } = matter(content);
+      
+      // Auto-extract tags from body
+      const tagRegex = /(?:^|\s)#(\w+)/g;
+      const foundTags = new Set<string>();
+      let match;
+      while ((match = tagRegex.exec(body)) !== null) {
+        foundTags.add(match[1]);
+      }
+      
+      const tagsString = Array.from(foundTags).map(t => `#${t}`).join(' ');
+      
+      // Only update if there's a real change to avoid infinite loops or cursor jumps
+      if (data.tags !== tagsString || JSON.stringify(data) !== JSON.stringify(properties)) {
+        const updatedData = { ...data, tags: tagsString };
+        setProperties(updatedData);
+        
+        // If the tags in the frontmatter actually changed, we update the full content
+        // But we only do this if the tags line in the frontmatter is different
+        if (data.tags !== tagsString) {
+          const newContent = matter.stringify(body, updatedData);
+          if (newContent !== content) {
+            setContent(newContent);
+          }
+        }
       }
     } catch (e) {
       // Ignore parsing errors during typing
     }
-  }, [content, properties, isExcalidraw]);
+  }, [content, isExcalidraw]);
 
   useEffect(() => {
     const handleHashScroll = () => {
@@ -708,12 +831,12 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
     calloutHighlightPlugin,
     tableEditExtension((pos) => openTableEditorAtCursor(pos)),
     tableEditTheme,
-    autocompleteExtensions(allTags, allMentions, allNotes),
+    autocompleteExtensions(allTags, allMentions, allProjects, allNotes),
     calloutTheme,
     transparentTheme,
     livePreviewExtension,
     livePreviewTheme
-  ], [allTags, allMentions, allNotes, transparentTheme, openTableEditorAtCursor]);
+  ], [allTags, allMentions, allProjects, allNotes, transparentTheme, openTableEditorAtCursor]);
 
   const BacklinksSection = () => {
     if (!initialBacklinks || initialBacklinks.length === 0) return null;
@@ -976,7 +1099,7 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
                       lastUpdated={currentLastUpdated}
                     />
                     <ReactMarkdown 
-                      remarkPlugins={[remarkGfm, remarkMath]}
+                      remarkPlugins={[remarkGfm, remarkMath, remarkChips]}
                       rehypePlugins={[rehypeRaw, rehypeKatex, rehypeSlug]}
                       components={{
                         p: ({ node, children, ...props }) => {
@@ -1162,24 +1285,33 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
                           return <a {...props} target="_blank" rel="noopener noreferrer">{props.children}</a>;
                         },
                         text: ({ node, children, ...props }) => {
-                          // Handle Hashtags and Mentions during text rendering
                           if (typeof children === 'string') {
-                            const segments = children.split(/((?:^|\s)#\w+|(?:^|\s)@\w+)/g);
+                            // Split by tags, mentions and projects, keeping the match in the results
+                            const segments = children.split(/(\s*[#@!]\w+)/g);
                             return (
                               <>
                                 {segments.map((segment, i) => {
-                                  if (segment.match(/(^|\s)#\w+/)) {
+                                  const match = segment.match(/^(\s*)([#@!])(\w+)$/);
+                                  if (match) {
+                                    const [_, space, prefix, name] = match;
+                                    const type = prefix === '#' ? 'tag' : prefix === '@' ? 'mention' : 'project';
+                                    
+                                    const styles: Record<string, string> = {
+                                      tag: 'bg-primary/15 text-primary ring-primary/25 hover:bg-primary/25',
+                                      mention: 'bg-amber-500/15 text-amber-500 ring-amber-500/25 hover:bg-amber-500/25',
+                                      project: 'bg-emerald-500/15 text-emerald-500 ring-emerald-500/25 hover:bg-emerald-500/25',
+                                    };
+
                                     return (
-                                      <span key={i} className="inline-flex items-center rounded-full bg-primary/20 px-2 py-0.5 text-[11px] font-bold text-primary ring-1 ring-inset ring-primary/30 mx-0.5">
-                                        {segment.trim()}
-                                      </span>
-                                    );
-                                  }
-                                  if (segment.match(/(^|\s)@\w+/)) {
-                                    return (
-                                      <span key={i} className="inline-flex items-center rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-bold text-amber-500 ring-1 ring-inset ring-amber-500/30 mx-0.5">
-                                        {segment.trim()}
-                                      </span>
+                                      <React.Fragment key={i}>
+                                        {space}
+                                        <span className={cn(
+                                          "inline-flex items-center rounded-md px-1.5 py-0.5 text-[12px] font-bold ring-1 ring-inset transition-colors cursor-pointer mx-0.5",
+                                          styles[type]
+                                        )}>
+                                          {prefix}{name}
+                                        </span>
+                                      </React.Fragment>
                                     );
                                   }
                                   return segment;
@@ -1397,7 +1529,7 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
           
           <div className="p-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
             <div className="prose prose-sm dark:prose-invert max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkChips]} rehypePlugins={[rehypeRaw]}>
                 {summaryResult || ''}
               </ReactMarkdown>
             </div>

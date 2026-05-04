@@ -201,10 +201,28 @@ const calloutTypes = [
   { label: "[!todo]", displayLabel: "Todo", type: "keyword", apply: "[!todo] ", detail: "Cyan" }
 ];
 
-export const autocompleteExtensions = (allTags: string[], allMentions: string[], allNotes: NoteMetadata[]) => {
+export const autocompleteExtensions = (allTags: string[], allMentions: string[], allProjects: string[], allNotes: NoteMetadata[]) => {
   return autocompletion({
     activateOnTyping: true,
     override: [
+      (context: CompletionContext): CompletionResult | null => {
+        let word = context.matchBefore(/!(\w*)/);
+        if (!word) return null;
+        if (word.from === word.to && !context.explicit) return null;
+
+        if (word.from === 0 || context.state.sliceDoc(word.from - 1, word.from).match(/\s/)) {
+          return {
+            from: word.from,
+            options: Array.from(new Set(allProjects)).map(project => ({
+              label: `!${project}`,
+              type: "keyword",
+              apply: `!${project} `,
+              detail: "project"
+            }))
+          };
+        }
+        return null;
+      },
       (context: CompletionContext): CompletionResult | null => {
         let word = context.matchBefore(/\[!\w*/);
         if (!word) return null;
