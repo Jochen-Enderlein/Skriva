@@ -28,6 +28,72 @@ export async function saveNoteWithPropertiesAction(slug: string, content: string
   }
 }
 
+export async function getTagsAction() {
+  try {
+    const { getTags } = await import('@/lib/notes');
+    const tags = await getTags();
+    return { success: true, tags };
+  } catch (error) {
+    console.error('Action error getting tags:', error);
+    return { success: false, error: 'Failed to get tags' };
+  }
+}
+
+export async function getMentionsAction() {
+  try {
+    const { getMentions } = await import('@/lib/notes');
+    const mentions = await getMentions();
+    return { success: true, mentions };
+  } catch (error) {
+    console.error('Action error getting mentions:', error);
+    return { success: false, error: 'Failed to get mentions' };
+  }
+}
+
+export async function getNotesAction(dir: string = '', includeTemplates: boolean = false) {
+  try {
+    const { getNotes } = await import('@/lib/notes');
+    const notes = await getNotes(dir, includeTemplates);
+    return { success: true, notes };
+  } catch (error) {
+    console.error('Action error getting notes:', error);
+    return { success: false, error: 'Failed to get notes' };
+  }
+}
+
+export async function getFoldersAction(dir: string = '') {
+  try {
+    const { getFolders } = await import('@/lib/notes');
+    const folders = await getFolders(dir);
+    return { success: true, folders };
+  } catch (error) {
+    console.error('Action error getting folders:', error);
+    return { success: false, error: 'Failed to get folders' };
+  }
+}
+
+export async function getGraphDataAction() {
+  try {
+    const { getGraphData } = await import('@/lib/notes');
+    const graphData = await getGraphData();
+    return { success: true, graphData };
+  } catch (error) {
+    console.error('Action error getting graph data:', error);
+    return { success: false, error: 'Failed to get graph data' };
+  }
+}
+
+export async function getBacklinksAction(targetTitle: string) {
+  try {
+    const { getBacklinks } = await import('@/lib/notes');
+    const backlinks = await getBacklinks(targetTitle);
+    return { success: true, backlinks };
+  } catch (error) {
+    console.error('Action error getting backlinks:', error);
+    return { success: false, error: 'Failed to get backlinks' };
+  }
+}
+
 export async function toggleTaskAction(noteSlug: string, line: number, checked: boolean) {
   try {
     await toggleTask(noteSlug, line, checked);

@@ -588,14 +588,8 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
         const updatedData = { ...data, tags: tagsString };
         setProperties(updatedData);
         
-        // If the tags in the frontmatter actually changed, we update the full content
-        // But we only do this if the tags line in the frontmatter is different
-        if (data.tags !== tagsString) {
-          const newContent = matter.stringify(body, updatedData);
-          if (newContent !== content) {
-            setContent(newContent);
-          }
-        }
+        // We no longer update the content state here because it causes the cursor to jump.
+        // The frontmatter will be correctly merged and saved by the server-side saveNoteWithPropertiesAction.
       }
     } catch (e) {
       // Ignore parsing errors during typing

@@ -5,7 +5,14 @@ import { Editor } from "@/components/editor";
 import { LayoutWrapper } from "@/components/layout-wrapper";
 import { useRouter, useParams } from "next/navigation";
 import { 
-  getNoteContentAction
+  getNoteContentAction,
+  getNotesAction,
+  getFoldersAction,
+  getGraphDataAction,
+  getTagsAction,
+  getMentionsAction,
+  getProjectsAction,
+  getBacklinksAction
 } from "@/app/actions";
 import { NoteMetadata } from "@/lib/types";
 
@@ -57,20 +64,32 @@ export default function NotePageClient() {
             projects: projects.map((p: any) => p.project),
             backlinks
           });
-          } else {
-          const contentRes = await getNoteContentAction(slug);
+        } else {
+          // Fallback to server actions for non-electron environments (e.g., mobile/web)
+          const [contentRes, notesRes, foldersRes, graphRes, tagsRes, mentionsRes, projectsRes, backlinksRes] = await Promise.all([
+            getNoteContentAction(slug),
+            getNotesAction('', true),
+            getFoldersAction(''),
+            getGraphDataAction(),
+            getTagsAction(),
+            getMentionsAction(),
+            getProjectsAction(),
+            getBacklinksAction(decodeURIComponent(slug).split('/').pop() || '')
+          ]);
+
           if (contentRes.success) {
             setData({
-              notes: [],
-              folders: [],
+              notes: notesRes.success ? notesRes.notes as NoteMetadata[] : [],
+              folders: foldersRes.success ? foldersRes.folders as string[] : [],
               content: contentRes.content || '',
               lastUpdated: contentRes.lastUpdated,
-              graphData: { nodes: [], links: [] },
-              tags: [],
-              mentions: [],
-              projects: [],
-              backlinks: []
-            });          }
+              graphData: graphRes.success ? graphRes.graphData : { nodes: [], links: [] },
+              tags: tagsRes.success ? tagsRes.tags.map((t: any) => t.tag) : [],
+              mentions: mentionsRes.success ? mentionsRes.mentions.map((m: any) => m.mention) : [],
+              projects: projectsRes.success ? projectsRes.projects.map((p: any) => p.project) : [],
+              backlinks: backlinksRes.success ? backlinksRes.backlinks : []
+            });
+          }
         }
       } catch (error) {
         console.error("Failed to load note:", error);

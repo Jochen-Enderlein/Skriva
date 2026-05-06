@@ -206,17 +206,33 @@ export function MiniGraphView({ currentSlug, currentContent, globalData }: MiniG
                 // Label
                 if (globalScale > 1.2 || isCurrent) {
                   ctx.fillStyle = isDark ? 'rgba(15, 15, 15, 0.8)' : 'rgba(255, 255, 255, 0.9)';
-                  ctx.roundRect(
-                    node.x - bckgDimensions[0] / 2, 
-                    node.y + 5, 
-                    bckgDimensions[0] as number, 
-                    bckgDimensions[1] as number,
-                    2
-                  );
+
+                  const x = node.x - bckgDimensions[0] / 2;
+                  const y = node.y + 5;
+                  const w = bckgDimensions[0] as number;
+                  const h = bckgDimensions[1] as number;
+                  const r = 2;
+
+                  // Compatibility replacement for roundRect
+                  if ((ctx as any).roundRect) {
+                    (ctx as any).roundRect(x, y, w, h, r);
+                  } else {
+                    // Fallback for older browsers
+                    ctx.beginPath();
+                    ctx.moveTo(x + r, y);
+                    ctx.lineTo(x + w - r, y);
+                    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+                    ctx.lineTo(x + w, y + h - r);
+                    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+                    ctx.lineTo(x + r, y + h);
+                    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+                    ctx.lineTo(x, y + r);
+                    ctx.quadraticCurveTo(x, y, x + r, y);
+                    ctx.closePath();
+                  }
                   ctx.fill();
 
-                  ctx.textAlign = 'center';
-                  ctx.textBaseline = 'top';
+                  ctx.textAlign = 'center';                  ctx.textBaseline = 'top';
                   
                   const textColors: Record<string, string> = {
                     tag: '#a855f7',
