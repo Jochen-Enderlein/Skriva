@@ -496,9 +496,10 @@ interface EditorProps {
   allMentions: string[];
   allProjects: string[];
   lastUpdated?: string;
+  forceReadOnly?: boolean;
 }
 
-export function Editor({ slug, initialContent, allNotes, graphData, backlinks: initialBacklinks, allTags, allMentions, allProjects, lastUpdated: initialLastUpdated }: EditorProps) {
+export function Editor({ slug, initialContent, allNotes, graphData, backlinks: initialBacklinks, allTags, allMentions, allProjects, lastUpdated: initialLastUpdated, forceReadOnly }: EditorProps) {
   const isCompact = useMediaQuery("(max-width: 1279px)");
   
   // Parse initial content for frontmatter
@@ -507,11 +508,20 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
   const [content, setContent] = useState(initialContent);
   const [properties, setProperties] = useState(parsed.data);
   const [currentLastUpdated, setCurrentLastUpdated] = useState(initialLastUpdated);
-  const [isReadOnly, setIsReadOnly] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(forceReadOnly || false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryResult, setSummaryResult] = useState<string | null>(null);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
-  
+
+  // Broadcast changes for preview windows
+  useEffect(() => {
+    if (!forceReadOnly) {
+      const channel = new BroadcastChannel(`note-update-${slug}`);
+      channel.postMessage({ content, properties });
+      return () => channel.close();
+    }
+  }, [content, properties, slug, forceReadOnly]);
+
   const isExcalidraw = useMemo(() => decodeURIComponent(slug).toLowerCase().endsWith('.excalidraw'), [slug]);
 
   const handleSummarize = async (forceRegenerate: boolean = false) => {
@@ -985,90 +995,117 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
     </div>
   );
 
+  const { wordCount, charCount } = useMemo(() => {
+    const text = content || '';
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const chars = text.length;
+    return { wordCount: words, charCount: chars };
+  }, [content]);
+
   return (
     <div className="flex h-full w-full gap-2 md:gap-4 overflow-hidden">
-      <ContentCard className="flex-1">
-        <SidebarTriggerInternal />
+      <ContentCard className={cn("flex-1 relative", forceReadOnly && "border-none shadow-none bg-transparent")}>
+        {!forceReadOnly && <SidebarTriggerInternal />}
 
-        <div className="absolute top-3 right-3 z-50 flex items-center gap-2 no-print transition-all duration-300">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => setIsGraphOpen(!isGraphOpen)}
-            className={cn(
-              "h-8 w-8 transition-all rounded-xl",
-              isGraphOpen ? "bg-primary/20 text-primary opacity-100 shadow-[0_0_10px_rgba(var(--primary),0.2)]" : "text-foreground opacity-30 hover:opacity-100 hover:bg-accent"
-            )}
-            title={isGraphOpen ? "Hide Local Graph" : "Show Local Graph"}
-          >
-            <Share2 className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-          {/* Fixed Toolbar Container */}
-          <div className="flex-none flex flex-col items-center pt-4 z-30 mb-6 no-print">
-            <div className="flex items-center gap-4 bg-popover/90 backdrop-blur-md border border-border p-1.5 rounded-full shadow-lg transition-all">
-              {!isExcalidraw && (
-                <div className="flex items-center gap-2 px-3 border-r border-border mr-1">
-                  <Switch 
-                    id="read-mode" 
-                    checked={isReadOnly} 
-                    onCheckedChange={setIsReadOnly}
-                  />
-                  <Label htmlFor="read-mode" className="text-[10px] uppercase tracking-widest font-bold opacity-50 cursor-pointer select-none">
-                    {isReadOnly ? 'View' : 'Edit'}
-                  </Label>
-                </div>
-              )}
-              
-              <div className="flex items-center gap-1 pr-2">
-                {!isExcalidraw ? (
-                  <>
-                    <FormatButton onClick={() => insertFormat('# ')} icon={Heading1} title="Heading 1" />
-                    <FormatButton onClick={() => insertFormat('## ')} icon={Heading2} title="Heading 2" />
-                    <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
-                    <FormatButton onClick={() => insertFormat('**', '**')} icon={Bold} title="Bold" />
-                    <FormatButton onClick={() => insertFormat('*', '*')} icon={Italic} title="Italic" />
-                    <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
-                    <FormatButton onClick={() => insertFormat('- ')} icon={ListIcon} title="Bullet List" />
-                    <FormatButton onClick={() => insertFormat('```\n', '\n```')} icon={Code} title="Code Block" />
-                    <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
-                    <FormatButton 
-                      onClick={() => openTableEditorAtCursor()} 
-                      icon={TableIcon} 
-                      title="Insert or Edit Table" 
-                    />
-                    <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
-                    <button 
-                      onClick={() => handleSummarize()}
-                      disabled={isSummarizing || isReadOnly || !content.trim()}
-                      className={cn(
-                        "flex items-center gap-1.5 px-2 py-1 hover:bg-primary/20 hover:text-primary rounded text-foreground active:scale-95 transition-all text-xs font-medium",
-                        (isSummarizing || isReadOnly || !content.trim()) && "opacity-50 cursor-not-allowed"
-                      )}
-                      title="AI Summary"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      {isSummarizing ? "..." : "AI"}
-                    </button>
-                    <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
-                  </>
-                ) : (
-                  <div className="px-3 text-[10px] uppercase tracking-widest font-bold opacity-50 select-none border-r border-border mr-2">
-                    Excalidraw
-                  </div>
-                )}
-                <button 
-                  onClick={handleExportPdf}
-                  className="p-1 hover:bg-accent rounded text-foreground active:scale-95 transition-all"
-                  title="Export as PDF"
-                >
-                  <FileDown className="w-4 h-4" />
-                </button>
+        {!forceReadOnly && (
+          <div className="absolute bottom-6 right-8 z-30 pointer-events-none no-print">
+            <div className="flex items-center gap-4 px-5 py-2.5 rounded-2xl bg-background/40 backdrop-blur-md border border-border/40 shadow-sm transition-all duration-300">
+              <div className="flex flex-col items-center min-w-[32px]">
+                <span className="text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 mb-0.5">Words</span>
+                <span className="text-[12px] font-bold text-muted-foreground/80 leading-none">{wordCount}</span>
+              </div>
+              <div className="w-px h-6 bg-border/20" />
+              <div className="flex flex-col items-center min-w-[32px]">
+                <span className="text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 mb-0.5">Chars</span>
+                <span className="text-[12px] font-bold text-muted-foreground/80 leading-none">{charCount}</span>
               </div>
             </div>
           </div>
+        )}
+
+        {!forceReadOnly && (
+          <div className="absolute top-3 right-3 z-50 flex items-center gap-2 no-print transition-all duration-300">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setIsGraphOpen(!isGraphOpen)}
+              className={cn(
+                "h-8 w-8 transition-all rounded-xl",
+                isGraphOpen ? "bg-primary/20 text-primary opacity-100 shadow-[0_0_10px_rgba(var(--primary),0.2)]" : "text-foreground opacity-30 hover:opacity-100 hover:bg-accent"
+              )}
+              title={isGraphOpen ? "Hide Local Graph" : "Show Local Graph"}
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+          {/* Fixed Toolbar Container */}
+          {!forceReadOnly && (
+            <div className="flex-none flex flex-col items-center pt-4 z-30 mb-6 no-print">
+              <div className="flex items-center gap-4 bg-popover/90 backdrop-blur-md border border-border p-1.5 rounded-full shadow-lg transition-all">
+                {!isExcalidraw && (
+                  <div className="flex items-center gap-2 px-3 border-r border-border mr-1">
+                    <Switch 
+                      id="read-mode" 
+                      checked={isReadOnly} 
+                      onCheckedChange={setIsReadOnly}
+                    />
+                    <Label htmlFor="read-mode" className="text-[10px] uppercase tracking-widest font-bold opacity-50 cursor-pointer select-none">
+                      {isReadOnly ? 'View' : 'Edit'}
+                    </Label>
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-1 pr-2">
+                  {!isExcalidraw ? (
+                    <>
+                      <FormatButton onClick={() => insertFormat('# ')} icon={Heading1} title="Heading 1" />
+                      <FormatButton onClick={() => insertFormat('## ')} icon={Heading2} title="Heading 2" />
+                      <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
+                      <FormatButton onClick={() => insertFormat('**', '**')} icon={Bold} title="Bold" />
+                      <FormatButton onClick={() => insertFormat('*', '*')} icon={Italic} title="Italic" />
+                      <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
+                      <FormatButton onClick={() => insertFormat('- ')} icon={ListIcon} title="Bullet List" />
+                      <FormatButton onClick={() => insertFormat('```\n', '\n```')} icon={Code} title="Code Block" />
+                      <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
+                      <FormatButton 
+                        onClick={() => openTableEditorAtCursor()} 
+                        icon={TableIcon} 
+                        title="Insert or Edit Table" 
+                      />
+                      <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
+                      <button 
+                        onClick={() => handleSummarize()}
+                        disabled={isSummarizing || isReadOnly || !content.trim()}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2 py-1 hover:bg-primary/20 hover:text-primary rounded text-foreground active:scale-95 transition-all text-xs font-medium",
+                          (isSummarizing || isReadOnly || !content.trim()) && "opacity-50 cursor-not-allowed"
+                        )}
+                        title="AI Summary"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        {isSummarizing ? "..." : "AI"}
+                      </button>
+                      <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
+                    </>
+                  ) : (
+                    <div className="px-3 text-[10px] uppercase tracking-widest font-bold opacity-50 select-none border-r border-border mr-2">
+                      Excalidraw
+                    </div>
+                  )}
+                  <button 
+                    onClick={handleExportPdf}
+                    className="p-1 hover:bg-accent rounded text-foreground active:scale-95 transition-all"
+                    title="Export as PDF"
+                  >
+                    <FileDown className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Scrollable Content Area */}
           <div className={cn(
@@ -1077,21 +1114,23 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
           )}>
             <div className={cn(
               "mx-auto w-full print-content",
-              isExcalidraw ? "max-w-none p-0 h-full" : "max-w-4xl px-6 py-12 pt-0"
+              isExcalidraw ? "max-w-none p-0 h-full" : (forceReadOnly ? "max-w-3xl px-6 py-4" : "max-w-3xl px-6 py-12 pt-0")
             )}>
               <div className={cn("w-full relative", isExcalidraw ? "h-full" : "h-full")}>
                 {isExcalidraw ? (
                   <ExcalidrawEditor key={slug} slug={slug} initialContent={initialContent} />
                 ) : isReadOnly ? (
                   <div className="prose prose-sm dark:prose-invert max-w-none print:prose-headings:text-black print:prose-p:text-black">
-                    <PropertiesPanel 
-                      slug={slug} 
-                      data={properties} 
-                      content={content} 
-                      onUpdate={setProperties} 
-                      onContentUpdate={setContent}
-                      lastUpdated={currentLastUpdated}
-                    />
+                    {!forceReadOnly && (
+                      <PropertiesPanel 
+                        slug={slug} 
+                        data={properties} 
+                        content={content} 
+                        onUpdate={setProperties} 
+                        onContentUpdate={setContent}
+                        lastUpdated={currentLastUpdated}
+                      />
+                    )}
                     <ReactMarkdown 
                       remarkPlugins={[remarkGfm, remarkMath, remarkChips]}
                       rehypePlugins={[rehypeRaw, rehypeKatex, rehypeSlug]}

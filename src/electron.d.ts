@@ -10,6 +10,7 @@ declare global {
       minimizeWindow: () => Promise<void>;
       maximizeWindow: () => Promise<void>;
       closeWindow: () => Promise<void>;
+      openPreviewWindow: (slug: string) => Promise<void>;
       
       // Filesystem operations
       getNotes: (dir?: string, includeTemplates?: boolean) => Promise<NoteMetadata[]>;

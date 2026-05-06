@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Editor } from "@/components/editor";
 import { LayoutWrapper } from "@/components/layout-wrapper";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { 
   getNoteContentAction,
   getNotesAction,
@@ -18,6 +18,8 @@ import { NoteMetadata } from "@/lib/types";
 
 export default function NotePageClient() {
   const params = useParams();
+  const searchParams = useSearchParams();
+  const isPreview = searchParams.get('preview') === 'true';
   const slugArray = params.slug as string[];
   const slug = slugArray ? slugArray.join('/') : '';
   
@@ -98,7 +100,7 @@ export default function NotePageClient() {
       }
     }
     loadData();
-  }, [slug, router]);
+  }, [slug]);
 
   if (loading) {
     return (
@@ -109,6 +111,25 @@ export default function NotePageClient() {
   }
 
   if (!data) return null;
+
+  if (isPreview) {
+    return (
+      <div className="h-screen bg-background overflow-hidden">
+        <Editor 
+          slug={slug} 
+          initialContent={data.content} 
+          lastUpdated={data.lastUpdated}
+          allNotes={data.notes} 
+          graphData={data.graphData} 
+          backlinks={data.backlinks} 
+          allTags={data.tags}
+          allMentions={data.mentions}
+          allProjects={data.projects}
+          forceReadOnly={true}
+        />
+      </div>
+    );
+  }
 
   return (
     <LayoutWrapper notes={data.notes} folders={data.folders}>
@@ -126,3 +147,4 @@ export default function NotePageClient() {
     </LayoutWrapper>
   );
 }
+
