@@ -86,10 +86,10 @@ export default function NotePageClient() {
               content: contentRes.content || '',
               lastUpdated: contentRes.lastUpdated,
               graphData: graphRes.success ? graphRes.graphData : { nodes: [], links: [] },
-              tags: tagsRes.success ? tagsRes.tags.map((t: any) => t.tag) : [],
-              mentions: mentionsRes.success ? mentionsRes.mentions.map((m: any) => m.mention) : [],
-              projects: projectsRes.success ? projectsRes.projects.map((p: any) => p.project) : [],
-              backlinks: backlinksRes.success ? backlinksRes.backlinks : []
+              tags: tagsRes.success ? (tagsRes as any).tags?.map((t: any) => t.tag) || [] : [],
+              mentions: mentionsRes.success ? (mentionsRes as any).mentions?.map((m: any) => m.mention) || [] : [],
+              projects: projectsRes.success ? (projectsRes as any).projects?.map((p: any) => p.project) || [] : [],
+              backlinks: backlinksRes.success ? (backlinksRes as any).backlinks || [] : []
             });
           }
         }

@@ -4,6 +4,10 @@ import fssync from 'fs';
 import path from 'path';
 import { getStoredVaultPath } from '@/lib/notes';
 
+export async function generateStaticParams() {
+  return [{ slug: ['dummy'] }];
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string[] }> }

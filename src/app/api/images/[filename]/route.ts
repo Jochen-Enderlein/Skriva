@@ -4,6 +4,10 @@ import path from 'path';
 
 const IMAGES_PATH = path.join(process.cwd(), 'assets/images');
 
+export async function generateStaticParams() {
+  return [{ filename: 'dummy' }];
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ filename: string }> }

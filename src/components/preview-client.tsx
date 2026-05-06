@@ -5,17 +5,28 @@ import { Editor } from "@/components/editor";
 import { Button } from "@/components/ui/button";
 import { Minus, Square, X as CloseIcon } from "lucide-react";
 
-export function PreviewClient({ data: initialData, slug }: any) {
+export function PreviewClient({ data: initialData, slug: initialSlug }: any) {
   const [mounted, setMounted] = React.useState(false);
-  const [content, setContent] = useState(initialData.content);
-  // Note: We don't currently pass properties back into Editor here because Editor 
-  // parses them internally from content using gray-matter. 
-  // But we store them if needed for future use.
-  const [properties, setProperties] = useState(initialData.properties || {});
+  const [slug, setSlug] = useState(initialSlug);
+  const [content, setContent] = useState(initialData?.content || '');
+  const [properties, setProperties] = useState(initialData?.properties || {});
   
   React.useEffect(() => {
     setMounted(true);
-  }, []);
+    
+    // In static export, we might need to get the slug from URL query params
+    if (!initialSlug && typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlSlug = params.get('slug');
+      if (urlSlug) {
+        setSlug(urlSlug);
+        // We'd need to load the content via Electron IPC here since it's static HTML
+        if (window.electron) {
+          window.electron.getNoteContent(urlSlug).then(setContent);
+        }
+      }
+    }
+  }, [initialSlug]);
 
   // Listen for broadcasts from the main editor window
   useEffect(() => {
