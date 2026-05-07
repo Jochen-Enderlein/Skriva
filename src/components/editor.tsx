@@ -447,6 +447,7 @@ function TaskQuery({ folderPath }: { folderPath: string }) {
 
 import { ExcalidrawEditor } from './excalidraw-editor';
 import { ExcalidrawEmbed } from './excalidraw-embed';
+import { KanbanView } from './kanban-view';
 
 import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
@@ -644,10 +645,11 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
   }, [slug, properties, isExcalidraw]);
 
   useEffect(() => {
-    if (debouncedContent !== initialContent && !isReadOnly) {
+    const isKanban = properties.type === 'kanban';
+    if (debouncedContent !== initialContent && (!isReadOnly || (isReadOnly && isKanban))) {
       saveContent(debouncedContent);
     }
-  }, [debouncedContent, initialContent, saveContent, isReadOnly]);
+  }, [debouncedContent, initialContent, saveContent, isReadOnly, properties.type]);
 
   const viewContent = useMemo(() => {
     if (!content) return '';
@@ -1079,303 +1081,315 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
           {/* Scrollable Content Area */}
           <div className={cn(
             "flex-1 scroll-smooth print:overflow-visible",
-            isExcalidraw ? "overflow-hidden h-full" : "overflow-y-auto"
+            (isExcalidraw || (isReadOnly && properties.type === 'kanban')) ? "overflow-hidden h-full" : "overflow-y-auto"
           )}>
             <div className={cn(
               "mx-auto w-full print-content",
-              isExcalidraw ? "max-w-none p-0 h-full" : (forceReadOnly ? "max-w-5xl px-6 py-4" : "max-w-5xl px-6 py-12 pt-0")
+              (isExcalidraw || (isReadOnly && properties.type === 'kanban')) ? "max-w-none p-0 h-full" : (forceReadOnly ? "max-w-5xl px-6 py-4" : "max-w-5xl px-6 py-12 pt-0")
             )}>
               <div className={cn("w-full relative", isExcalidraw ? "h-full" : "h-full")}>
                 {isExcalidraw ? (
                   <ExcalidrawEditor key={slug} slug={slug} initialContent={initialContent} readOnly={isReadOnly} />
                 ) : isReadOnly ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none print:prose-headings:text-black print:prose-p:text-black">
-                    {!forceReadOnly && (
-                      <PropertiesPanel 
-                        slug={slug} 
-                        data={properties} 
-                        content={content} 
-                        onUpdate={setProperties} 
-                        onContentUpdate={setContent}
-                        lastUpdated={currentLastUpdated}
-                      />
-                    )}
-                    <ReactMarkdown 
-                      remarkPlugins={[remarkGfm, remarkMath, remarkChips]}
-                      rehypePlugins={[rehypeRaw, rehypeKatex, rehypeSlug]}
-                      components={{
-                        p: ({ node, children, ...props }) => {
-                          const textContent = node?.children
-                            ? (node.children as any[]).map(c => c.value || (c.children ? c.children.map((cc: any) => cc.value).join('') : '')).join('')
-                            : '';
-                          
-                          if (textContent.trim() === '--[]--') {
-                            // Derive the current folder path from the slug
-                            const parts = decodeURIComponent(slug).split('/');
-                            parts.pop(); // Remove the filename
-                            const currentFolder = parts.join('/');
-                            return <TaskQuery folderPath={currentFolder} />;
-                          }
+                  properties?.type?.toString().toLowerCase() === 'kanban' ? (
+                    <div className="absolute inset-0 flex flex-col overflow-hidden bg-background z-10">
+                      <div className="flex-1 min-h-0 w-full relative">
+                        <KanbanView 
+                          content={content} 
+                          allNotes={allNotes} 
+                          onContentChange={setContent}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="prose prose-sm dark:prose-invert max-w-none print:prose-headings:text-black print:prose-p:text-black">
+                      {!forceReadOnly && (
+                        <PropertiesPanel 
+                          slug={slug} 
+                          data={properties} 
+                          content={content} 
+                          onUpdate={setProperties} 
+                          onContentUpdate={setContent}
+                          lastUpdated={currentLastUpdated}
+                        />
+                      )}
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm, remarkMath, remarkChips]}
+                        rehypePlugins={[rehypeRaw, rehypeKatex, rehypeSlug]}
+                        components={{
+                          p: ({ node, children, ...props }) => {
+                            const textContent = node?.children
+                              ? (node.children as any[]).map(c => c.value || (c.children ? c.children.map((cc: any) => cc.value).join('') : '')).join('')
+                              : '';
+                            
+                            if (textContent.trim() === '--[]--') {
+                              // Derive the current folder path from the slug
+                              const parts = decodeURIComponent(slug).split('/');
+                              parts.pop(); // Remove the filename
+                              const currentFolder = parts.join('/');
+                              return <TaskQuery folderPath={currentFolder} />;
+                            }
 
-                          const calloutMatch = textContent.match(/^\[!(\w+)\]/);
-                          if (calloutMatch) {
-                            const type = calloutMatch[1].toLowerCase();
-                            const colors: Record<string, { border: string, bg: string, text: string, ring: string }> = {
-                              info: { border: 'border-blue-500', bg: 'bg-blue-500/10', text: 'text-blue-400', ring: 'ring-blue-500/20' },
-                              note: { border: 'border-blue-500', bg: 'bg-blue-500/10', text: 'text-blue-400', ring: 'ring-blue-500/20' },
-                              warning: { border: 'border-amber-500', bg: 'bg-amber-500/10', text: 'text-amber-400', ring: 'ring-amber-500/20' },
-                              danger: { border: 'border-red-500', bg: 'bg-red-500/10', text: 'text-red-400', ring: 'ring-red-500/20' },
-                              error: { border: 'border-red-500', bg: 'bg-red-500/10', text: 'text-red-400', ring: 'ring-red-500/20' },
-                              success: { border: 'border-emerald-500', bg: 'bg-emerald-500/10', text: 'text-emerald-400', ring: 'ring-emerald-500/20' },
-                              tip: { border: 'border-purple-500', bg: 'bg-purple-500/10', text: 'text-purple-400', ring: 'ring-purple-500/20' },
-                              todo: { border: 'border-cyan-500', bg: 'bg-cyan-500/10', text: 'text-cyan-400', ring: 'ring-cyan-500/20' },
-                            };
-                            const icons: Record<string, any> = {
-                              info: <Info className="h-4 w-4 mr-2" />,
-                              note: <Info className="h-4 w-4 mr-2" />,
-                              warning: <AlertTriangle className="h-4 w-4 mr-2" />,
-                              danger: <AlertCircle className="h-4 w-4 mr-2" />,
-                              error: <AlertCircle className="h-4 w-4 mr-2" />,
-                              success: <CheckCircle2 className="h-4 w-4 mr-2" />,
-                              tip: <Plus className="h-4 w-4 mr-2" />,
-                              todo: <CheckCircle2 className="h-4 w-4 mr-2" />,
-                            };
-                            const color = colors[type] || colors.info;
+                            const calloutMatch = textContent.match(/^\[!(\w+)\]/);
+                            if (calloutMatch) {
+                              const type = calloutMatch[1].toLowerCase();
+                              const colors: Record<string, { border: string, bg: string, text: string, ring: string }> = {
+                                info: { border: 'border-blue-500', bg: 'bg-blue-500/10', text: 'text-blue-400', ring: 'ring-blue-500/20' },
+                                note: { border: 'border-blue-500', bg: 'bg-blue-500/10', text: 'text-blue-400', ring: 'ring-blue-500/20' },
+                                warning: { border: 'border-amber-500', bg: 'bg-amber-500/10', text: 'text-amber-400', ring: 'ring-amber-500/20' },
+                                danger: { border: 'border-red-500', bg: 'bg-red-500/10', text: 'text-red-400', ring: 'ring-red-500/20' },
+                                error: { border: 'border-red-500', bg: 'bg-red-500/10', text: 'text-red-400', ring: 'ring-red-500/20' },
+                                success: { border: 'border-emerald-500', bg: 'bg-emerald-500/10', text: 'text-emerald-400', ring: 'ring-emerald-500/20' },
+                                tip: { border: 'border-purple-500', bg: 'bg-purple-500/10', text: 'text-purple-400', ring: 'ring-purple-500/20' },
+                                todo: { border: 'border-cyan-500', bg: 'bg-cyan-500/10', text: 'text-cyan-400', ring: 'ring-cyan-500/20' },
+                              };
+                              const icons: Record<string, any> = {
+                                info: <Info className="h-4 w-4 mr-2" />,
+                                note: <Info className="h-4 w-4 mr-2" />,
+                                warning: <AlertTriangle className="h-4 w-4 mr-2" />,
+                                danger: <AlertCircle className="h-4 w-4 mr-2" />,
+                                error: <AlertCircle className="h-4 w-4 mr-2" />,
+                                success: <CheckCircle2 className="h-4 w-4 mr-2" />,
+                                tip: <Plus className="h-4 w-4 mr-2" />,
+                                todo: <CheckCircle2 className="h-4 w-4 mr-2" />,
+                              };
+                              const color = colors[type] || colors.info;
 
-                            // Robustly remove [!type] from the children
-                            const stripCalloutTag = (nodes: React.ReactNode): React.ReactNode => {
-                              return React.Children.map(nodes, (child, i) => {
-                                if (i !== 0) return child;
-                                if (typeof child === 'string') {
-                                  return child.replace(/^\[!\w+\]\s*/, '');
-                                }
-                                if (React.isValidElement(child) && (child.props as any).children) {
-                                  return React.cloneElement(child, {
-                                    children: stripCalloutTag((child.props as any).children)
-                                  } as any);
-                                }
-                                return child;
-                              });
-                            };
-
-                            return (
-                              <div className={cn(
-                                "my-6 border-l-4 p-4 rounded-r-xl shadow-lg ring-1",
-                                color.border, color.bg, color.ring
-                              )}>
-                                <div className={cn("flex items-center font-black uppercase text-[11px] tracking-[0.2em] mb-3", color.text)}>
-                                  {icons[type]}
-                                  <span>{type}</span>
-                                </div>
-                                <div className="prose-p:m-0 text-[14px] text-foreground/90 leading-relaxed">
-                                  {stripCalloutTag(children)}
-                                </div>
-                              </div>
-                            );
-                          }
-                          return <p {...props}>{children}</p>;
-                        },
-                        input: ({ node, ...props }) => {
-                          if (props.type === 'checkbox') {
-                            return (
-                              <input
-                                type="checkbox"
-                                checked={props.checked}
-                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer transition-all mr-2"
-                                onChange={(e) => {
-                                  // Find this checkbox in the source text and toggle it
-                                  const isChecked = e.target.checked;
-                                  
-                                  // We need to find which checkbox this is in the UI
-                                  // This is a bit tricky with ReactMarkdown, so we find all checkboxes
-                                  const checkboxes = document.querySelectorAll('.prose input[type="checkbox"]');
-                                  const index = Array.from(checkboxes).indexOf(e.target as HTMLInputElement);
-                                  
-                                  if (index !== -1) {
-                                    let count = 0;
-                                    const newContent = content.replace(/^(\s*[-*+]\s+\[)([ xX])(\].*)$/gm, (match, p1, p2, p3) => {
-                                      if (count === index) {
-                                        count++;
-                                        return p1 + (isChecked ? 'x' : ' ') + p3;
-                                      }
-                                      count++;
-                                      return match;
-                                    });
-                                    setContent(newContent);
+                              // Robustly remove [!type] from the children
+                              const stripCalloutTag = (nodes: React.ReactNode): React.ReactNode => {
+                                return React.Children.map(nodes, (child, i) => {
+                                  if (i !== 0) return child;
+                                  if (typeof child === 'string') {
+                                    return child.replace(/^\[!\w+\]\s*/, '');
                                   }
-                                }}
-                              />
-                            );
-                          }
-                          return <input {...props} />;
-                        },
-                        table: ({ node, children, ...props }) => {
-                          return (
-                            <div className="relative group/table mb-6">
-                              <div className="overflow-x-auto">
-                                <table className="w-full border-collapse" {...props}>
-                                  {children}
-                                </table>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="absolute -top-3 -right-3 h-7 px-2 text-[10px] opacity-0 group-hover/table:opacity-100 transition-opacity shadow-lg"
-                                onClick={() => {
-                                  // Extract table data from the DOM or original content
-                                  // Finding the exact table in content is hard by index, 
-                                  // but we can search for the markdown block.
-                                  const tableRows: string[][] = [];
-                                  const rows = (node as any).children.filter((c: any) => c.type === 'element' && (c.tagName === 'thead' || c.tagName === 'tbody'));
-                                  
-                                  rows.forEach((rowGroup: any) => {
-                                    rowGroup.children.forEach((tr: any) => {
-                                      if (tr.type === 'element' && tr.tagName === 'tr') {
-                                        const cells: string[] = [];
-                                        tr.children.forEach((td: any) => {
-                                          if (td.type === 'element' && (td.tagName === 'td' || td.tagName === 'th')) {
-                                            // Extract text content recursively
-                                            const getText = (n: any): string => {
-                                              if (n.type === 'text') return n.value;
-                                              if (n.children) return n.children.map(getText).join('');
-                                              return '';
-                                            };
-                                            cells.push(getText(td).trim());
-                                          }
-                                        });
-                                        if (cells.length > 0) tableRows.push(cells);
-                                      }
-                                    });
-                                  });
-
-                                  // Simple heuristic to find this table in original content
-                                  // This works best if tables are unique or we use the first match
-                                  const tableRegex = /\|(.+)\|[\s\S]+?\|(.+)\|/g;
-                                  let match;
-                                  let bestMatch = '';
-                                  while ((match = tableRegex.exec(content)) !== null) {
-                                    // Check if this match contains the first row of our table
-                                    if (tableRows[0] && match[0].includes(tableRows[0][0])) {
-                                      bestMatch = match[0];
-                                      break;
-                                    }
+                                  if (React.isValidElement(child) && (child.props as any).children) {
+                                    return React.cloneElement(child, {
+                                      children: stripCalloutTag((child.props as any).children)
+                                    } as any);
                                   }
+                                  return child;
+                                });
+                              };
 
-                                  setTableEditData({
-                                    data: tableRows,
-                                    originalString: bestMatch || '',
-                                    isOpen: true
-                                  });
-                                }}
-                              >
-                                <TableIcon className="h-3 w-3 mr-1" /> Edit Table
-                              </Button>
-                            </div>
-                          );
-                        },
-                        div: ({ node, className, ...props }) => {
-                          if (className === 'excalidraw-transclusion') {
-                            const slug = props['data-slug' as keyof typeof props] as string;
-                            return <ExcalidrawEmbed slug={decodeURIComponent(slug)} />;
-                          }
-                          return <div className={className} {...props} />;
-                        },
-                        a: ({ node, ...props }) => {
-                          if (props.href?.startsWith('/note/')) {
-                            return <Link href={props.href}>{props.children}</Link>;
-                          }
-                          return <a {...props} target="_blank" rel="noopener noreferrer">{props.children}</a>;
-                        },
-                        text: ({ node, children, ...props }) => {
-                          if (typeof children === 'string') {
-                            // Split by tags, mentions and projects, keeping the match in the results
-                            const segments = children.split(/(\s*[#@!]\w+)/g);
-                            return (
-                              <>
-                                {segments.map((segment, i) => {
-                                  const match = segment.match(/^(\s*)([#@!])(\w+)$/);
-                                  if (match) {
-                                    const [_, space, prefix, name] = match;
-                                    const type = prefix === '#' ? 'tag' : prefix === '@' ? 'mention' : 'project';
+                              return (
+                                <div className={cn(
+                                  "my-6 border-l-4 p-4 rounded-r-xl shadow-lg ring-1",
+                                  color.border, color.bg, color.ring
+                                )}>
+                                  <div className={cn("flex items-center font-black uppercase text-[11px] tracking-[0.2em] mb-3", color.text)}>
+                                    {icons[type]}
+                                    <span>{type}</span>
+                                  </div>
+                                  <div className="prose-p:m-0 text-[14px] text-foreground/90 leading-relaxed">
+                                    {stripCalloutTag(children)}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return <p {...props}>{children}</p>;
+                          },
+                          input: ({ node, ...props }) => {
+                            if (props.type === 'checkbox') {
+                              return (
+                                <input
+                                  type="checkbox"
+                                  checked={props.checked}
+                                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer transition-all mr-2"
+                                  onChange={(e) => {
+                                    // Find this checkbox in the source text and toggle it
+                                    const isChecked = e.target.checked;
                                     
-                                    const styles: Record<string, string> = {
-                                      tag: 'bg-primary/15 text-primary ring-primary/25 hover:bg-primary/25',
-                                      mention: 'bg-amber-500/15 text-amber-500 ring-amber-500/25 hover:bg-amber-500/25',
-                                      project: 'bg-emerald-500/15 text-emerald-500 ring-emerald-500/25 hover:bg-emerald-500/25',
-                                    };
+                                    // We need to find which checkbox this is in the UI
+                                    // This is a bit tricky with ReactMarkdown, so we find all checkboxes
+                                    const checkboxes = document.querySelectorAll('.prose input[type="checkbox"]');
+                                    const index = Array.from(checkboxes).indexOf(e.target as HTMLInputElement);
+                                    
+                                    if (index !== -1) {
+                                      let count = 0;
+                                      const newContent = content.replace(/^(\s*[-*+]\s+\[)([ xX])(\].*)$/gm, (match, p1, p2, p3) => {
+                                        if (count === index) {
+                                          count++;
+                                          return p1 + (isChecked ? 'x' : ' ') + p3;
+                                        }
+                                        count++;
+                                        return match;
+                                      });
+                                      setContent(newContent);
+                                    }
+                                  }}
+                                />
+                              );
+                            }
+                            return <input {...props} />;
+                          },
+                          table: ({ node, children, ...props }) => {
+                            return (
+                              <div className="relative group/table mb-6">
+                                <div className="overflow-x-auto">
+                                  <table className="w-full border-collapse" {...props}>
+                                    {children}
+                                  </table>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="absolute -top-3 -right-3 h-7 px-2 text-[10px] opacity-0 group-hover/table:opacity-100 transition-opacity shadow-lg"
+                                  onClick={() => {
+                                    // Extract table data from the DOM or original content
+                                    // Finding the exact table in content is hard by index, 
+                                    // but we can search for the markdown block.
+                                    const tableRows: string[][] = [];
+                                    const rows = (node as any).children.filter((c: any) => c.type === 'element' && (c.tagName === 'thead' || c.tagName === 'tbody'));
+                                    
+                                    rows.forEach((rowGroup: any) => {
+                                      rowGroup.children.forEach((tr: any) => {
+                                        if (tr.type === 'element' && tr.tagName === 'tr') {
+                                          const cells: string[] = [];
+                                          tr.children.forEach((td: any) => {
+                                            if (td.type === 'element' && (td.tagName === 'td' || td.tagName === 'th')) {
+                                              // Extract text content recursively
+                                              const getText = (n: any): string => {
+                                                if (n.type === 'text') return n.value;
+                                                if (n.children) return n.children.map(getText).join('');
+                                                return '';
+                                              };
+                                              cells.push(getText(td).trim());
+                                            }
+                                          });
+                                          if (cells.length > 0) tableRows.push(cells);
+                                        }
+                                      });
+                                    });
 
-                                    return (
-                                      <React.Fragment key={i}>
-                                        {space}
-                                        <span className={cn(
-                                          "inline-flex items-center rounded-md px-1.5 py-0.5 text-[12px] font-bold ring-1 ring-inset transition-colors cursor-pointer mx-0.5",
-                                          styles[type]
-                                        )}>
-                                          {prefix}{name}
-                                        </span>
-                                      </React.Fragment>
-                                    );
-                                  }
-                                  return segment;
-                                })}
-                              </>
+                                    // Simple heuristic to find this table in original content
+                                    // This works best if tables are unique or we use the first match
+                                    const tableRegex = /\|(.+)\|[\s\S]+?\|(.+)\|/g;
+                                    let match;
+                                    let bestMatch = '';
+                                    while ((match = tableRegex.exec(content)) !== null) {
+                                      // Check if this match contains the first row of our table
+                                      if (tableRows[0] && match[0].includes(tableRows[0][0])) {
+                                        bestMatch = match[0];
+                                        break;
+                                      }
+                                    }
+
+                                    setTableEditData({
+                                      data: tableRows,
+                                      originalString: bestMatch || '',
+                                      isOpen: true
+                                    });
+                                  }}
+                                >
+                                  <TableIcon className="h-3 w-3 mr-1" /> Edit Table
+                                </Button>
+                              </div>
+                            );
+                          },
+                          div: ({ node, className, ...props }) => {
+                            if (className === 'excalidraw-transclusion') {
+                              const slug = props['data-slug' as keyof typeof props] as string;
+                              return <ExcalidrawEmbed slug={decodeURIComponent(slug)} />;
+                            }
+                            return <div className={className} {...props} />;
+                          },
+                          a: ({ node, ...props }) => {
+                            if (props.href?.startsWith('/note/')) {
+                              return <Link href={props.href}>{props.children}</Link>;
+                            }
+                            return <a {...props} target="_blank" rel="noopener noreferrer">{props.children}</a>;
+                          },
+                          text: ({ node, children, ...props }) => {
+                            if (typeof children === 'string') {
+                              // Split by tags, mentions and projects, keeping the match in the results
+                              const segments = children.split(/(\s*[#@!]\w+)/g);
+                              return (
+                                <>
+                                  {segments.map((segment, i) => {
+                                    const match = segment.match(/^(\s*)([#@!])(\w+)$/);
+                                    if (match) {
+                                      const [_, space, prefix, name] = match;
+                                      const type = prefix === '#' ? 'tag' : prefix === '@' ? 'mention' : 'project';
+                                      
+                                      const styles: Record<string, string> = {
+                                        tag: 'bg-primary/15 text-primary ring-primary/25 hover:bg-primary/25',
+                                        mention: 'bg-amber-500/15 text-amber-500 ring-amber-500/25 hover:bg-amber-500/25',
+                                        project: 'bg-emerald-500/15 text-emerald-500 ring-emerald-500/25 hover:bg-emerald-500/25',
+                                      };
+
+                                      return (
+                                        <React.Fragment key={i}>
+                                          {space}
+                                          <span className={cn(
+                                            "inline-flex items-center rounded-md px-1.5 py-0.5 text-[12px] font-bold ring-1 ring-inset transition-colors cursor-pointer mx-0.5",
+                                            styles[type]
+                                          )}>
+                                            {prefix}{name}
+                                          </span>
+                                        </React.Fragment>
+                                      );
+                                    }
+                                    return segment;
+                                  })}
+                                </>
+                              );
+                            }
+                            return children;
+                          },
+                          blockquote: ({ node, children, ...props }) => {
+                            // Standard blockquote styling, callouts are now handled in paragraph component for better compatibility
+                            return <blockquote className="border-l-4 border-muted/30 pl-4 italic my-6 text-muted-foreground" {...props}>{children}</blockquote>;
+                          },
+                          code: ({ node, className, children, ...props }) => {
+                            const match = /language-(\w+)/.exec(className || '');
+                            const lang = match ? match[1] : 'text';
+
+                            if (lang === 'mermaid') {
+                              return <Mermaid chart={String(children).replace(/\n$/, '')} />;
+                            }
+
+                            const isBlock = match || String(children).includes('\n');
+                            return isBlock ? (
+                              <div className="relative group">
+                                <SyntaxHighlighter
+                                  style={vscDarkPlus as any}
+                                  language={lang}
+                                  PreTag="div"
+                                  customStyle={{ backgroundColor: 'transparent', padding: 0, margin: '1em 0' }}
+                                  className="!bg-transparent text-[13px] no-print"
+                                >
+                                  {String(children).replace(/\n$/, '')}
+                                </SyntaxHighlighter>
+                                <SyntaxHighlighter
+                                  style={prism as any}
+                                  language={lang}
+                                  PreTag="div"
+                                  customStyle={{ 
+                                    backgroundColor: '#f8f9fa', 
+                                    padding: '12px', 
+                                    margin: '1em 0', 
+                                    border: '1px solid #e1e4e8',
+                                    borderRadius: '6px',
+                                    fontSize: '11px',
+                                    lineHeight: '1.5'
+                                  }}
+                                  className="hidden print:block"
+                                >
+                                  {String(children).replace(/\n$/, '')}
+                                </SyntaxHighlighter>
+                              </div>
+                            ) : (
+                              <code className="bg-white/10 px-1.5 py-0.5 rounded-md text-[0.9em] font-mono text-primary/90 print:bg-[#f3f4f6] print:text-[#eb5757] print:border print:border-[#e1e4e8] print:px-1 print:py-0" {...props}>
+                                {children}
+                              </code>
                             );
                           }
-                          return children;
-                        },
-                        blockquote: ({ node, children, ...props }) => {
-                          // Standard blockquote styling, callouts are now handled in paragraph component for better compatibility
-                          return <blockquote className="border-l-4 border-muted/30 pl-4 italic my-6 text-muted-foreground" {...props}>{children}</blockquote>;
-                        },
-                        code: ({ node, className, children, ...props }) => {
-                          const match = /language-(\w+)/.exec(className || '');
-                          const lang = match ? match[1] : 'text';
-
-                          if (lang === 'mermaid') {
-                            return <Mermaid chart={String(children).replace(/\n$/, '')} />;
-                          }
-
-                          const isBlock = match || String(children).includes('\n');
-                          return isBlock ? (
-                            <div className="relative group">
-                              <SyntaxHighlighter
-                                style={vscDarkPlus as any}
-                                language={lang}
-                                PreTag="div"
-                                customStyle={{ backgroundColor: 'transparent', padding: 0, margin: '1em 0' }}
-                                className="!bg-transparent text-[13px] no-print"
-                              >
-                                {String(children).replace(/\n$/, '')}
-                              </SyntaxHighlighter>
-                              <SyntaxHighlighter
-                                style={prism as any}
-                                language={lang}
-                                PreTag="div"
-                                customStyle={{ 
-                                  backgroundColor: '#f8f9fa', 
-                                  padding: '12px', 
-                                  margin: '1em 0', 
-                                  border: '1px solid #e1e4e8',
-                                  borderRadius: '6px',
-                                  fontSize: '11px',
-                                  lineHeight: '1.5'
-                                }}
-                                className="hidden print:block"
-                              >
-                                {String(children).replace(/\n$/, '')}
-                              </SyntaxHighlighter>
-                            </div>
-                          ) : (
-                            <code className="bg-white/10 px-1.5 py-0.5 rounded-md text-[0.9em] font-mono text-primary/90 print:bg-[#f3f4f6] print:text-[#eb5757] print:border print:border-[#e1e4e8] print:px-1 print:py-0" {...props}>
-                              {children}
-                            </code>
-                          );
-                        }
-                      }}
-                    >
-                      {viewContent}
-                    </ReactMarkdown>
-                  </div>
+                        }}
+                      >
+                        {viewContent}
+                      </ReactMarkdown>
+                    </div>
+                  )
                 ) : (
                   <div className="relative w-full h-[calc(100vh-250px)] rounded-md overflow-hidden bg-transparent">
                     <CodeMirror

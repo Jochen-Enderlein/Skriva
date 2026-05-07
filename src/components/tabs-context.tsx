@@ -53,7 +53,9 @@ export function TabsProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const activeTab = pathname.startsWith('/note/') ? decodeURIComponent(pathname.replace('/note/', '')) : null;
+  const activeTab = pathname.startsWith('/note/') 
+    ? decodeURIComponent(pathname.replace('/note/', '')).replace(/\/$/, '') 
+    : null;
 
   return (
     <TabsContext.Provider value={{ tabs, activeTab, openTab, closeTab, isGraphOpen, setIsGraphOpen, isReadmeOpen, setIsReadmeOpen }}>
