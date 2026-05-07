@@ -9,5 +9,12 @@ contextBridge.exposeInMainWorld('electron', {
   maximizeWindow: () => ipcRenderer.invoke('maximize-window'),
   closeWindow: () => ipcRenderer.invoke('close-window'),
   openPreviewWindow: (slug) => ipcRenderer.invoke('open-preview-window', slug),
+  getNoteContent: (slug) => ipcRenderer.invoke('get-note-content', slug),
+  getNotes: (dir, includeTemplates) => ipcRenderer.invoke('get-notes', dir, includeTemplates),
+  getFolders: (dir) => ipcRenderer.invoke('get-folders', dir),
+  getBacklinks: (title) => ipcRenderer.invoke('get-backlinks', title),
+  searchNotes: (query) => ipcRenderer.invoke('search-notes', query),
+  saveNote: (slug, content) => ipcRenderer.invoke('save-note', slug, content),
+  deleteFile: (slug) => ipcRenderer.invoke('delete-file', slug),
   platform: process.platform,
 });

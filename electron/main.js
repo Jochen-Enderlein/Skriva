@@ -97,6 +97,207 @@ ipcMain.handle('close-window', () => {
   if (win) win.close();
 });
 
+ipcMain.handle('get-note-content', async (event, slug) => {
+  try {
+    const config = loadConfig();
+    const vaultPath = config.vaultPath || path.join(app.getAppPath(), 'assets/notes');
+    
+    let filePath = path.join(vaultPath, slug);
+    if (!filePath.endsWith('.md') && !filePath.endsWith('.excalidraw')) {
+      filePath += '.md';
+    }
+    
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    console.error('Failed to read note content:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('get-notes', async (event, dir = '', includeTemplates = false) => {
+  try {
+    const config = loadConfig();
+    const vaultPath = config.vaultPath || path.join(app.getAppPath(), 'assets/notes');
+    const fullPath = path.join(vaultPath, dir);
+    
+    if (!fs.existsSync(fullPath)) return [];
+    
+    const getNotesRecursively = (currentDir) => {
+      const dirPath = path.join(vaultPath, currentDir);
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      let results = [];
+      
+      for (const entry of entries) {
+        if (!includeTemplates && entry.name === '.templates' && currentDir === '') continue;
+        
+        const relativePath = path.join(currentDir, entry.name);
+        const fullEntryPath = path.join(dirPath, entry.name);
+        
+        if (entry.isDirectory()) {
+          results = [...results, ...getNotesRecursively(relativePath)];
+        } else if (entry.name.endsWith('.md') || entry.name.endsWith('.excalidraw')) {
+          const isExcalidraw = entry.name.endsWith('.excalidraw');
+          const title = isExcalidraw ? entry.name : entry.name.replace(/\.md$/, '');
+          const slug = path.join(currentDir, isExcalidraw ? entry.name : title);
+          
+          const stats = fs.statSync(fullEntryPath);
+          results.push({
+            title,
+            slug,
+            path: entry.name,
+            relativeDir: currentDir,
+            lastUpdated: stats.mtime.toISOString(),
+          });
+        }
+      }
+      return results;
+    };
+    
+    return getNotesRecursively(dir);
+  } catch (error) {
+    console.error('Failed to get notes:', error);
+    return [];
+  }
+});
+
+ipcMain.handle('get-folders', async (event, dir = '') => {
+  try {
+    const config = loadConfig();
+    const vaultPath = config.vaultPath || path.join(app.getAppPath(), 'assets/notes');
+    const fullPath = path.join(vaultPath, dir);
+    
+    if (!fs.existsSync(fullPath)) return [];
+    
+    const getFoldersRecursively = (currentDir) => {
+      const dirPath = path.join(vaultPath, currentDir);
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      let results = currentDir ? [currentDir] : [];
+      
+      for (const entry of entries) {
+        if (entry.isDirectory() && entry.name !== '.templates') {
+          results = [...results, ...getFoldersRecursively(path.join(currentDir, entry.name))];
+        }
+      }
+      return results;
+    };
+    
+    return getFoldersRecursively(dir);
+  } catch (error) {
+    console.error('Failed to get folders:', error);
+    return [];
+  }
+});
+
+ipcMain.handle('search-notes', async (event, query) => {
+  try {
+    const config = loadConfig();
+    const vaultPath = config.vaultPath || path.join(app.getAppPath(), 'assets/notes');
+    
+    // Simple search implementation
+    const results = [];
+    const searchInDir = (currentDir) => {
+      const dirPath = path.join(vaultPath, currentDir);
+      if (!fs.existsSync(dirPath)) return;
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const relativePath = path.join(currentDir, entry.name);
+        if (entry.isDirectory()) {
+          searchInDir(relativePath);
+        } else if (entry.name.endsWith('.md')) {
+          const content = fs.readFileSync(path.join(dirPath, entry.name), 'utf-8');
+          if (entry.name.toLowerCase().includes(query.toLowerCase()) || content.toLowerCase().includes(query.toLowerCase())) {
+            results.push({
+              slug: relativePath.replace(/\.md$/, ''),
+              title: entry.name.replace(/\.md$/, ''),
+              snippet: content.substring(0, 100) + '...'
+            });
+          }
+        }
+      }
+    };
+    
+    searchInDir('');
+    return results;
+  } catch (error) {
+    console.error('Search failed:', error);
+    return [];
+  }
+});
+
+ipcMain.handle('get-backlinks', async (event, targetTitle) => {
+  try {
+    const config = loadConfig();
+    const vaultPath = config.vaultPath || path.join(app.getAppPath(), 'assets/notes');
+    const backlinks = [];
+    
+    const findLinks = (currentDir) => {
+      const dirPath = path.join(vaultPath, currentDir);
+      if (!fs.existsSync(dirPath)) return;
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const relativePath = path.join(currentDir, entry.name);
+        if (entry.isDirectory()) {
+          findLinks(relativePath);
+        } else if (entry.name.endsWith('.md')) {
+          const content = fs.readFileSync(path.join(dirPath, entry.name), 'utf-8');
+          if (content.includes(`[[${targetTitle}]]`)) {
+            backlinks.push({
+              title: entry.name.replace(/\.md$/, ''),
+              slug: relativePath.replace(/\.md$/, ''),
+              snippet: content.substring(content.indexOf(`[[${targetTitle}]]`) - 50, content.indexOf(`[[${targetTitle}]]`) + 50)
+            });
+          }
+        }
+      }
+    };
+    
+    findLinks('');
+    return backlinks;
+  } catch (error) {
+    console.error('Failed to get backlinks:', error);
+    return [];
+  }
+});
+
+ipcMain.handle('save-note', async (event, slug, content) => {
+  try {
+    const config = loadConfig();
+    const vaultPath = config.vaultPath || path.join(app.getAppPath(), 'assets/notes');
+    let filePath = path.join(vaultPath, slug);
+    if (!filePath.endsWith('.md') && !filePath.endsWith('.excalidraw')) {
+      filePath += '.md';
+    }
+    
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, content, 'utf-8');
+    return true;
+  } catch (error) {
+    console.error('Failed to save note:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('delete-file', async (event, slug) => {
+  try {
+    const config = loadConfig();
+    const vaultPath = config.vaultPath || path.join(app.getAppPath(), 'assets/notes');
+    let filePath = path.join(vaultPath, slug);
+    if (!filePath.endsWith('.md') && !filePath.endsWith('.excalidraw')) {
+      filePath += '.md';
+    }
+    
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    return true;
+  } catch (error) {
+    console.error('Failed to delete file:', error);
+    return false;
+  }
+});
+
 ipcMain.handle('open-preview-window', (event, slug) => {
   const previewWindow = new BrowserWindow({
     width: 800,

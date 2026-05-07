@@ -15,9 +15,10 @@ const Excalidraw = dynamic(
 interface ExcalidrawEditorProps {
   slug: string;
   initialContent: string;
+  readOnly?: boolean;
 }
 
-export function ExcalidrawEditor({ slug, initialContent }: ExcalidrawEditorProps) {
+export function ExcalidrawEditor({ slug, initialContent, readOnly = false }: ExcalidrawEditorProps) {
   const [data, setData] = useState<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const { resolvedTheme } = useTheme();
@@ -78,7 +79,7 @@ export function ExcalidrawEditor({ slug, initialContent }: ExcalidrawEditorProps
   }, [initialContent, resolvedTheme, generateSvg]);
 
   const saveData = useDebouncedCallback(async (newData: any) => {
-    if (!newData) return;
+    if (!newData || readOnly) return;
     const content = JSON.stringify(newData);
     const result = await saveNoteAction(slug, content);
     if (!result.success) {
@@ -89,6 +90,8 @@ export function ExcalidrawEditor({ slug, initialContent }: ExcalidrawEditorProps
   }, 1000);
 
   const handleChange = (elements: any, appState: any, files: any) => {
+    if (readOnly) return;
+
     const newData = {
       type: "excalidraw",
       version: 2,
@@ -125,10 +128,12 @@ export function ExcalidrawEditor({ slug, initialContent }: ExcalidrawEditorProps
               zoom: { value: 1 },
               scrollX: data.appState?.scrollX || 0,
               scrollY: data.appState?.scrollY || 0,
+              viewModeEnabled: readOnly
             },
             files: data.files || {},
           }}
           onChange={handleChange}
+          viewModeEnabled={readOnly}
           theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
           UIOptions={{
             canvasActions: {

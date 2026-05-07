@@ -37,11 +37,30 @@ export function ExcalidrawEmbed({ slug }: ExcalidrawEmbedProps) {
           
           if (!parsedData) {
             console.log(`[Excalidraw] Fetching content for ${slug} (attempt ${retryCount + 1})...`);
-            const result = await getNoteContentAction(slug);
+            
+            let content: string | null = null;
+            
+            // Try Electron IPC first if available
+            if (typeof window !== 'undefined' && window.electron) {
+              try {
+                content = await window.electron.getNoteContent(slug);
+              } catch (err) {
+                console.error(`[Excalidraw] Electron fetch failed:`, err);
+              }
+            }
+            
+            // Fallback to Server Action
+            if (!content) {
+              const result = await getNoteContentAction(slug);
+              if (result.success && result.content) {
+                content = result.content;
+              }
+            }
+
             if (!isMounted) return;
 
-            if (result.success && result.content) {
-              parsedData = JSON.parse(result.content);
+            if (content) {
+              parsedData = JSON.parse(content);
               excalidrawCache[slug] = parsedData;
               setData(parsedData);
             } else if (retryCount < maxRetries) {

@@ -40,7 +40,7 @@ export function TabList() {
   return (
     <div 
       className={cn(
-        "flex items-end gap-0 overflow-x-auto no-scrollbar h-full transition-all duration-300 max-w-full",
+        "flex items-end gap-0 overflow-x-auto no-scrollbar h-full transition-all duration-300 max-w-full mt-1",
         isMac && state === "collapsed" ? "pl-20" : "pl-0"
       )}
       style={{ WebkitAppRegion: 'drag' } as any}
@@ -48,7 +48,7 @@ export function TabList() {
       <Link 
         href="/" 
         className={cn(
-          "flex items-center justify-center h-9 w-10 transition-all duration-200 shrink-0 relative z-30 ml-2 border-t border-transparent",
+          "flex items-center justify-center h-full w-10 transition-all duration-200 shrink-0 relative z-30 ml-2 border-t border-transparent",
           pathname === '/' 
             ? "text-primary mb-[-1px] rounded-t-xl" 
             : "text-muted-foreground hover:bg-accent/30 hover:text-foreground mb-[-1px] rounded-md"
@@ -82,7 +82,7 @@ export function TabList() {
             <div
               onContextMenu={(e) => handleContextMenu(e, tab.slug)}
               className={cn(
-                "no-drag group relative flex items-center h-9 px-4 gap-2 min-w-[120px] max-w-[200px] text-[12px] font-medium transition-all duration-200 select-none rounded-t-xl z-30 border-t outline-none cursor-default",
+                "no-drag group relative flex items-center h-full px-4 gap-2 min-w-[120px] max-w-[200px] text-[12px] font-medium transition-all duration-200 select-none rounded-t-xl z-30 border-t outline-none cursor-default",
                 isActive
                   ? "bg-background text-foreground border-l border-r border-border/40 shadow-[0_-1px_3px_rgba(0,0,0,0.05)] mb-[-1px] border-t-border/40"
                   : "text-muted-foreground hover:bg-accent/30 hover:text-foreground mb-[-1px] mx-0.5 border-t-transparent"

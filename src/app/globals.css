@@ -185,7 +185,7 @@
   --tw-prose-pre-bg: var(--muted);
   --tw-prose-th-borders: var(--border);
   --tw-prose-td-borders: var(--border);
-  max-width: 800px !important;
+  max-width: 950px !important;
   line-height: 1.45 !important;
   font-size: 1rem !important;
 }

@@ -75,7 +75,6 @@ import {
   Code, 
   Table as TableIcon,
   Share2,
-  FileDown,
   Plus,
   Trash2,
   Info,
@@ -682,6 +681,12 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
            hashTarget = originalHash;
         }
       }
+
+      // Resolve baseTarget to full slug if possible (fuzzy matching for titles in subfolders)
+      const targetNote = allNotes.find(n => n.title === baseTarget || n.slug === baseTarget);
+      if (targetNote) {
+        baseTarget = targetNote.slug;
+      }
       
       if (baseTarget.toLowerCase().endsWith('.excalidraw')) {
         return `<div class="excalidraw-transclusion" data-slug="${encodeURIComponent(baseTarget)}"></div>`;
@@ -905,34 +910,6 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
     view.focus();
   };
 
-  const handleExportPdf = async () => {
-    const title = decodeURIComponent(slug).split('/').pop()?.replace(/\.(md|excalidraw)$/i, '') || 'note';
-    
-    // Switch to read mode for better print layout if not already
-    const wasReadOnly = isReadOnly;
-    if (!wasReadOnly) setIsReadOnly(true);
-
-    // Give it a moment to switch UI and render Excalidraw properly
-    setTimeout(async () => {
-      if (typeof window !== 'undefined' && (window as any).electron) {
-        // Desktop: Use Electron API
-        toast.info("Preparing PDF...");
-        const success = await (window as any).electron.saveNoteAsPdf(title);
-        if (success) {
-          toast.success("PDF exported successfully");
-        } else {
-          toast.error("Failed to export PDF");
-        }
-      } else {
-        // Web: Use browser print dialog
-        window.print();
-      }
-      
-      // Switch back if needed
-      if (!wasReadOnly) setIsReadOnly(false);
-    }, 1000);
-  };
-
   const FormatButton = ({ onClick, icon: Icon, title }: { onClick: () => void, icon: any, title: string }) => (
     <button 
       disabled={isReadOnly}
@@ -1088,20 +1065,12 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
                         <Sparkles className="w-3.5 h-3.5" />
                         {isSummarizing ? "..." : "AI"}
                       </button>
-                      <Separator orientation="vertical" className="mx-1 h-4 bg-border opacity-50" />
                     </>
                   ) : (
                     <div className="px-3 text-[10px] uppercase tracking-widest font-bold opacity-50 select-none border-r border-border mr-2">
                       Excalidraw
                     </div>
                   )}
-                  <button 
-                    onClick={handleExportPdf}
-                    className="p-1 hover:bg-accent rounded text-foreground active:scale-95 transition-all"
-                    title="Export as PDF"
-                  >
-                    <FileDown className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
             </div>
@@ -1114,11 +1083,11 @@ export function Editor({ slug, initialContent, allNotes, graphData, backlinks: i
           )}>
             <div className={cn(
               "mx-auto w-full print-content",
-              isExcalidraw ? "max-w-none p-0 h-full" : (forceReadOnly ? "max-w-3xl px-6 py-4" : "max-w-3xl px-6 py-12 pt-0")
+              isExcalidraw ? "max-w-none p-0 h-full" : (forceReadOnly ? "max-w-5xl px-6 py-4" : "max-w-5xl px-6 py-12 pt-0")
             )}>
               <div className={cn("w-full relative", isExcalidraw ? "h-full" : "h-full")}>
                 {isExcalidraw ? (
-                  <ExcalidrawEditor key={slug} slug={slug} initialContent={initialContent} />
+                  <ExcalidrawEditor key={slug} slug={slug} initialContent={initialContent} readOnly={isReadOnly} />
                 ) : isReadOnly ? (
                   <div className="prose prose-sm dark:prose-invert max-w-none print:prose-headings:text-black print:prose-p:text-black">
                     {!forceReadOnly && (

@@ -1130,7 +1130,10 @@ export function LayoutWrapper({ notes, folders, children }: LayoutWrapperProps) 
         </SidebarUI>
 
         <div className="flex flex-1 flex-col overflow-hidden bg-sidebar">
-          <header className="flex h-10 shrink-0 items-center gap-2 px-4 bg-sidebar sticky top-0 z-20 no-print">
+          <header className={cn(
+            "flex shrink-0 items-center gap-2 px-4 bg-sidebar sticky top-0 z-20 no-print",
+            isMac ? "h-12" : "h-10"
+          )}>
             <div className="flex-1 flex items-center min-w-0 h-full">
               <TabList />
             </div>
