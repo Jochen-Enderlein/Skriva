@@ -133,8 +133,17 @@ export function GraphView({ data }: GraphViewProps) {
        nodes = nodes.map(node => ({ ...node, fx: undefined, fy: undefined, fz: undefined, originalZ: undefined }));
     }
 
+    // ForceGraph mutates links to replace string IDs with object references.
+    // Since we recreate node objects, we must reset link sources/targets to string IDs
+    // so ForceGraph can correctly re-bind them to the new node instances.
+    const resetLinks = links.map(link => ({
+      ...link,
+      source: typeof link.source === 'object' ? (link.source as any).id : link.source,
+      target: typeof link.target === 'object' ? (link.target as any).id : link.target
+    }));
+
     return { 
-      processedData: { nodes, links },
+      processedData: { nodes, links: resetLinks },
       zRange: { min: minZ, max: maxZ },
       dateLabels: { min: minDateStr, max: maxDateStr }
     };
