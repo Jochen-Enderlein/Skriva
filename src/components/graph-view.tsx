@@ -52,6 +52,8 @@ export function GraphView({ data }: GraphViewProps) {
   const [filter, setFilter] = useState('');
   const [is3D, setIs3D] = useState(false); // Default to 2D for safety
   const [webglAvailable, setWebglAvailable] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   
   useEffect(() => {
     setMounted(true);
@@ -68,6 +70,25 @@ export function GraphView({ data }: GraphViewProps) {
       setWebglAvailable(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        setDimensions({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height
+        });
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+    
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [mounted]);
 
   const { processedData, zRange, dateLabels } = useMemo(() => {
     // 1. Filter data
@@ -213,12 +234,15 @@ export function GraphView({ data }: GraphViewProps) {
         </button>
       </div>
 
-      <div className="flex-1 w-full">
-        {is3D && webglAvailable ? (
-          <ForceGraph3D
-            {...commonProps}
-            ref={fgRef}
-            linkColor={() => isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'}
+      <div className="flex-1 w-full" ref={containerRef}>
+        {dimensions.width > 0 && dimensions.height > 0 && (
+          is3D && webglAvailable ? (
+            <ForceGraph3D
+              {...commonProps}
+              width={dimensions.width}
+              height={dimensions.height}
+              ref={fgRef}
+              linkColor={() => isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'}
             linkWidth={1}
             nodeThreeObject={(node: any) => {
               const group = new THREE.Group();
@@ -297,6 +321,8 @@ export function GraphView({ data }: GraphViewProps) {
         ) : (
           <ForceGraph2D
             {...commonProps}
+            width={dimensions.width}
+            height={dimensions.height}
             linkColor={() => isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)'}
             linkWidth={1.5}
             nodeCanvasObject={(node: any, ctx, globalScale) => {
@@ -350,7 +376,7 @@ export function GraphView({ data }: GraphViewProps) {
               }
             }}
           />
-        )}
+        ))}
       </div>
 
       <div className="absolute bottom-4 left-4 pointer-events-none text-[10px] text-muted-foreground bg-background/50 backdrop-blur-sm px-3 py-1.5 rounded-full border border-border">
