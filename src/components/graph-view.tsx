@@ -69,7 +69,7 @@ export function GraphView({ data }: GraphViewProps) {
     }
   }, []);
 
-  const { processedData, zRange } = useMemo(() => {
+  const { processedData, zRange, dateLabels } = useMemo(() => {
     // 1. Filter data
     let nodes = data.nodes;
     let links = data.links;
@@ -102,6 +102,8 @@ export function GraphView({ data }: GraphViewProps) {
     // 2. Prepare 3D coordinates if needed
     let minZ = -200;
     let maxZ = 200;
+    let minDateStr = '';
+    let maxDateStr = '';
 
     if (is3D) {
       const noteNodes = nodes.filter(n => n.createdAt);
@@ -111,18 +113,21 @@ export function GraphView({ data }: GraphViewProps) {
         const maxTime = Math.max(...times);
         const timeRange = maxTime - minTime || 1;
 
+        minDateStr = new Date(minTime).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        maxDateStr = new Date(maxTime).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
         nodes = nodes.map(node => {
           if (node.createdAt) {
             const time = new Date(node.createdAt).getTime();
             // Map Z from -400 to 400 (longer axis)
             const z = ((time - minTime) / timeRange) * 800 - 400;
-            return { ...node, fz: z };
+            return { ...node, fz: z, z: z };
           }
           // Non-note nodes (tags etc) cluster around the middle or 0
-          return { ...node, fz: 0 };
+          return { ...node, fz: 0, z: 0 };
         });
-        minZ = -450;
-        maxZ = 450;
+        minZ = -400;
+        maxZ = 400;
       }
     } else {
        nodes = nodes.map(node => ({ ...node, fx: undefined, fy: undefined, fz: undefined }));
@@ -130,7 +135,8 @@ export function GraphView({ data }: GraphViewProps) {
 
     return { 
       processedData: { nodes, links },
-      zRange: { min: minZ, max: maxZ }
+      zRange: { min: minZ, max: maxZ },
+      dateLabels: { min: minDateStr, max: maxDateStr }
     };
   }, [data, filter, is3D]);
 
@@ -139,12 +145,12 @@ export function GraphView({ data }: GraphViewProps) {
     if (fgRef.current && is3D) {
       const fg = fgRef.current;
       // Pull nodes towards the center axis (X=0, Y=0)
-      fg.d3Force('x', (require('d3-force') as any).forceX(0).strength(0.1));
-      fg.d3Force('y', (require('d3-force') as any).forceY(0).strength(0.1));
+      fg.d3Force('x', (require('d3-force') as any).forceX(0).strength(0.05));
+      fg.d3Force('y', (require('d3-force') as any).forceY(0).strength(0.05));
       // Ensure no Z force competes with our fixed Z
       fg.d3Force('z', null);
       // Stronger repulsion to keep them from overlapping the axis line
-      fg.d3Force('charge').strength(-100);
+      fg.d3Force('charge').strength(-150);
     }
   }, [is3D, processedData]);
 
@@ -228,26 +234,48 @@ export function GraphView({ data }: GraphViewProps) {
               return group;
             }}
             onNodeDrag={(node: any) => {
-               // Lock Z during drag
+               // Lock Z strictly during drag
                if (node.fz !== undefined) {
                  node.z = node.fz;
                }
             }}
-            // Add the visible time axis line
-            customLayerData={[{ type: 'axis' }]}
+            onNodeDragEnd={(node: any) => {
+               // Re-enforce lock after drag
+               if (node.fz !== undefined) {
+                 node.z = node.fz;
+               }
+            }}
+            // Add the visible time axis line and labels at ends
+            customLayerData={[{ type: 'axis' }, { type: 'label-min' }, { type: 'label-max' }]}
             customLayerThreeObject={(data: any) => {
               if (data.type === 'axis') {
-                const height = zRange.max - zRange.min + 200;
-                const geometry = new THREE.CylinderGeometry(0.5, 0.5, height, 8);
+                const height = zRange.max - zRange.min;
+                const geometry = new THREE.CylinderGeometry(0.8, 0.8, height, 8);
                 const material = new THREE.MeshBasicMaterial({ 
                   color: isDark ? '#3b82f6' : '#1d4ed8', 
                   transparent: true, 
-                  opacity: 0.2 
+                  opacity: 0.3 
                 });
                 const axis = new THREE.Mesh(geometry, material);
                 axis.rotation.x = Math.PI / 2; // Align with Z axis
                 axis.position.z = (zRange.max + zRange.min) / 2;
                 return axis;
+              }
+              if (data.type === 'label-min' && dateLabels.min) {
+                const sprite = new SpriteText(dateLabels.min);
+                sprite.color = isDark ? '#3b82f6' : '#1d4ed8';
+                sprite.textHeight = 8;
+                sprite.position.z = zRange.min - 20;
+                sprite.position.y = 10;
+                return sprite;
+              }
+              if (data.type === 'label-max' && dateLabels.max) {
+                const sprite = new SpriteText(dateLabels.max);
+                sprite.color = isDark ? '#3b82f6' : '#1d4ed8';
+                sprite.textHeight = 8;
+                sprite.position.z = zRange.max + 20;
+                sprite.position.y = 10;
+                return sprite;
               }
               return undefined;
             }}
