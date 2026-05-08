@@ -151,6 +151,17 @@ export async function getNotes(dir: string = '', includeTemplates: boolean = fal
           const stats = fssync.statSync(fullEntryPath);
           lastUpdated = stats.mtime.toISOString();
           createdAt = (stats.birthtimeMs !== 0 ? stats.birthtime : stats.ctime).toISOString();
+
+          if (!isExcalidraw) {
+            const fileContent = await fs.readFile(fullEntryPath, 'utf-8');
+            const { data } = matter(fileContent);
+            if (data && data.created) {
+              const parsedDate = new Date(data.created);
+              if (!isNaN(parsedDate.getTime())) {
+                createdAt = parsedDate.toISOString();
+              }
+            }
+          }
         } catch (e) {
           // ignore
         }
