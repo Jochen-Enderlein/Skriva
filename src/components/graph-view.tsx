@@ -121,16 +121,16 @@ export function GraphView({ data }: GraphViewProps) {
             const time = new Date(node.createdAt).getTime();
             // Map Z from -400 to 400 (longer axis)
             const z = ((time - minTime) / timeRange) * 800 - 400;
-            return { ...node, fz: z, z: z };
+            return { ...node, fz: z, z: z, originalZ: z };
           }
           // Non-note nodes (tags etc) cluster around the middle or 0
-          return { ...node, fz: 0, z: 0 };
+          return { ...node, fz: 0, z: 0, originalZ: 0 };
         });
         minZ = -400;
         maxZ = 400;
       }
     } else {
-       nodes = nodes.map(node => ({ ...node, fx: undefined, fy: undefined, fz: undefined }));
+       nodes = nodes.map(node => ({ ...node, fx: undefined, fy: undefined, fz: undefined, originalZ: undefined }));
     }
 
     return { 
@@ -234,15 +234,17 @@ export function GraphView({ data }: GraphViewProps) {
               return group;
             }}
             onNodeDrag={(node: any) => {
-               // Lock Z strictly during drag
-               if (node.fz !== undefined) {
-                 node.z = node.fz;
+               // Lock Z strictly during drag using originalZ
+               if (node.originalZ !== undefined) {
+                 node.z = node.originalZ;
+                 node.fz = node.originalZ;
                }
             }}
             onNodeDragEnd={(node: any) => {
                // Re-enforce lock after drag
-               if (node.fz !== undefined) {
-                 node.z = node.fz;
+               if (node.originalZ !== undefined) {
+                 node.z = node.originalZ;
+                 node.fz = node.originalZ;
                }
             }}
             // Add the visible time axis line and labels at ends
