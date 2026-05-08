@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
@@ -46,6 +46,7 @@ interface GraphViewProps {
 
 export function GraphView({ data }: GraphViewProps) {
   const router = useRouter();
+  const fgRef = useRef<any>();
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [filter, setFilter] = useState('');
@@ -68,7 +69,7 @@ export function GraphView({ data }: GraphViewProps) {
     }
   }, []);
 
-  const processedData = useMemo(() => {
+  const { processedData, zRange } = useMemo(() => {
     // 1. Filter data
     let nodes = data.nodes;
     let links = data.links;
@@ -99,6 +100,9 @@ export function GraphView({ data }: GraphViewProps) {
     }
 
     // 2. Prepare 3D coordinates if needed
+    let minZ = -200;
+    let maxZ = 200;
+
     if (is3D) {
       const noteNodes = nodes.filter(n => n.createdAt);
       if (noteNodes.length > 0) {
@@ -110,20 +114,39 @@ export function GraphView({ data }: GraphViewProps) {
         nodes = nodes.map(node => {
           if (node.createdAt) {
             const time = new Date(node.createdAt).getTime();
-            // Map Z from -200 to 200
-            const z = ((time - minTime) / timeRange) * 400 - 200;
+            // Map Z from -400 to 400 (longer axis)
+            const z = ((time - minTime) / timeRange) * 800 - 400;
             return { ...node, fz: z };
           }
+          // Non-note nodes (tags etc) cluster around the middle or 0
           return { ...node, fz: 0 };
         });
+        minZ = -450;
+        maxZ = 450;
       }
     } else {
-       // Reset fixed Z for 2D
        nodes = nodes.map(node => ({ ...node, fx: undefined, fy: undefined, fz: undefined }));
     }
 
-    return { nodes, links };
+    return { 
+      processedData: { nodes, links },
+      zRange: { min: minZ, max: maxZ }
+    };
   }, [data, filter, is3D]);
+
+  // Adjust forces for 3D
+  useEffect(() => {
+    if (fgRef.current && is3D) {
+      const fg = fgRef.current;
+      // Pull nodes towards the center axis (X=0, Y=0)
+      fg.d3Force('x', (require('d3-force') as any).forceX(0).strength(0.1));
+      fg.d3Force('y', (require('d3-force') as any).forceY(0).strength(0.1));
+      // Ensure no Z force competes with our fixed Z
+      fg.d3Force('z', null);
+      // Stronger repulsion to keep them from overlapping the axis line
+      fg.d3Force('charge').strength(-100);
+    }
+  }, [is3D, processedData]);
 
   if (!mounted) return null;
 
@@ -140,8 +163,8 @@ export function GraphView({ data }: GraphViewProps) {
     graphData: processedData,
     nodeLabel: "title",
     backgroundColor: isDark ? '#050505' : '#ffffff',
-    linkColor: () => isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)',
-    linkWidth: 1.5,
+    linkColor: () => isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+    linkWidth: 1,
     nodeRelSize: 6,
     onNodeClick: (node: any) => {
       if (node.type === 'note') {
@@ -181,6 +204,7 @@ export function GraphView({ data }: GraphViewProps) {
         {is3D && webglAvailable ? (
           <ForceGraph3D
             {...commonProps}
+            ref={fgRef}
             nodeThreeObject={(node: any) => {
               const group = new THREE.Group();
               
@@ -208,6 +232,24 @@ export function GraphView({ data }: GraphViewProps) {
                if (node.fz !== undefined) {
                  node.z = node.fz;
                }
+            }}
+            // Add the visible time axis line
+            customLayerData={[{ type: 'axis' }]}
+            customLayerThreeObject={(data: any) => {
+              if (data.type === 'axis') {
+                const height = zRange.max - zRange.min + 200;
+                const geometry = new THREE.CylinderGeometry(0.5, 0.5, height, 8);
+                const material = new THREE.MeshBasicMaterial({ 
+                  color: isDark ? '#3b82f6' : '#1d4ed8', 
+                  transparent: true, 
+                  opacity: 0.2 
+                });
+                const axis = new THREE.Mesh(geometry, material);
+                axis.rotation.x = Math.PI / 2; // Align with Z axis
+                axis.position.z = (zRange.max + zRange.min) / 2;
+                return axis;
+              }
+              return undefined;
             }}
             showNavInfo={false}
           />
