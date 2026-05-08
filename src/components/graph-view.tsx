@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useTheme } from 'next-themes';
+import SpriteText from 'three-spritetext';
+import * as THREE from 'three';
 
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
   ssr: false,
@@ -179,7 +181,34 @@ export function GraphView({ data }: GraphViewProps) {
         {is3D && webglAvailable ? (
           <ForceGraph3D
             {...commonProps}
-            nodeColor={(node: any) => colors[node.type] || colors.note}
+            nodeThreeObject={(node: any) => {
+              const group = new THREE.Group();
+              
+              // Node sphere
+              const sphereGeom = new THREE.SphereGeometry(node.type === 'note' ? 4 : 3);
+              const sphereMat = new THREE.MeshLambertMaterial({ 
+                color: colors[node.type] || colors.note,
+                transparent: true,
+                opacity: 0.9
+              });
+              const sphere = new THREE.Mesh(sphereGeom, sphereMat);
+              group.add(sphere);
+
+              // Label
+              const sprite = new SpriteText(node.title);
+              sprite.color = isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)';
+              sprite.textHeight = 4;
+              sprite.position.y = 8;
+              group.add(sprite);
+
+              return group;
+            }}
+            onNodeDrag={(node: any) => {
+               // Lock Z during drag
+               if (node.fz !== undefined) {
+                 node.z = node.fz;
+               }
+            }}
             showNavInfo={false}
           />
         ) : (
