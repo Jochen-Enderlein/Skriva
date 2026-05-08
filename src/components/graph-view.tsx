@@ -189,7 +189,7 @@ export function GraphView({ data }: GraphViewProps) {
   };
 
   return (
-    <div className="w-full flex-1 h-[calc(100vh-140px)] bg-transparent  overflow-hidden relative flex flex-col">
+    <div className="w-full h-full bg-transparent overflow-hidden relative flex flex-col">
       {/* Local Filter Bar */}
       <div className="absolute top-4 left-4 z-10 flex gap-2 w-full max-w-md">
         <div className="relative flex-1 group">

@@ -15,12 +15,8 @@ export default async function GraphPage() {
     <LayoutWrapper notes={notes} folders={folders}>
       <ContentCard isHome={true}>
         <SidebarTriggerInternal />
-        <div className="h-full flex flex-col">
-          <div className="p-4 flex justify-between items-center bg-transparent">
-          </div>
-          <div className="flex-1 p-4 pt-0">
-            <GraphView data={graphData} />
-          </div>
+        <div className="h-full w-full">
+          <GraphView data={graphData} />
         </div>
       </ContentCard>
     </LayoutWrapper>
