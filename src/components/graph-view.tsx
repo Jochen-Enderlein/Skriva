@@ -251,12 +251,12 @@ export function GraphView({ data }: GraphViewProps) {
             customLayerData={[{ type: 'axis' }, { type: 'label-min' }, { type: 'label-max' }]}
             customLayerThreeObject={(data: any) => {
               if (data.type === 'axis') {
-                const height = zRange.max - zRange.min;
-                const geometry = new THREE.CylinderGeometry(0.8, 0.8, height, 8);
-                const material = new THREE.MeshBasicMaterial({ 
-                  color: isDark ? '#3b82f6' : '#1d4ed8', 
-                  transparent: true, 
-                  opacity: 0.3 
+                const height = (zRange.max - zRange.min) + 100;
+                const geometry = new THREE.CylinderGeometry(1.5, 1.5, height, 16);
+                const material = new THREE.MeshLambertMaterial({ 
+                  color: isDark ? '#60a5fa' : '#2563eb', 
+                  transparent: false, 
+                  opacity: 1 
                 });
                 const axis = new THREE.Mesh(geometry, material);
                 axis.rotation.x = Math.PI / 2; // Align with Z axis
@@ -264,19 +264,21 @@ export function GraphView({ data }: GraphViewProps) {
                 return axis;
               }
               if (data.type === 'label-min' && dateLabels.min) {
-                const sprite = new SpriteText(dateLabels.min);
-                sprite.color = isDark ? '#3b82f6' : '#1d4ed8';
-                sprite.textHeight = 8;
-                sprite.position.z = zRange.min - 20;
-                sprite.position.y = 10;
+                const sprite = new SpriteText(`Start: ${dateLabels.min}`);
+                sprite.color = isDark ? '#93c5fd' : '#1e3a8a';
+                sprite.textHeight = 12;
+                sprite.fontWeight = 'bold';
+                sprite.position.z = zRange.min - 60;
+                sprite.position.y = 0;
                 return sprite;
               }
               if (data.type === 'label-max' && dateLabels.max) {
-                const sprite = new SpriteText(dateLabels.max);
-                sprite.color = isDark ? '#3b82f6' : '#1d4ed8';
-                sprite.textHeight = 8;
-                sprite.position.z = zRange.max + 20;
-                sprite.position.y = 10;
+                const sprite = new SpriteText(`End: ${dateLabels.max}`);
+                sprite.color = isDark ? '#93c5fd' : '#1e3a8a';
+                sprite.textHeight = 12;
+                sprite.fontWeight = 'bold';
+                sprite.position.z = zRange.max + 60;
+                sprite.position.y = 0;
                 return sprite;
               }
               return undefined;
