@@ -56,6 +56,7 @@ export interface NoteMetadata {
   path: string;
   relativeDir: string;
   lastUpdated?: string;
+  createdAt?: string;
 }
 
 export interface Task {
@@ -145,9 +146,11 @@ export async function getNotes(dir: string = '', includeTemplates: boolean = fal
         const slug = path.join(dir, isExcalidraw ? entry.name : title);
         
         let lastUpdated;
+        let createdAt;
         try {
           const stats = fssync.statSync(fullEntryPath);
           lastUpdated = stats.mtime.toISOString();
+          createdAt = (stats.birthtimeMs !== 0 ? stats.birthtime : stats.ctime).toISOString();
         } catch (e) {
           // ignore
         }
@@ -158,6 +161,7 @@ export async function getNotes(dir: string = '', includeTemplates: boolean = fal
           path: entry.name,
           relativeDir: dir,
           lastUpdated,
+          createdAt,
         });
       }
     }
@@ -481,9 +485,14 @@ export async function getBacklinks(targetTitle: string): Promise<{ title: string
   return backlinks;
 }
 
-export async function getGraphData(): Promise<{ nodes: { id: string; title: string; type: 'note' | 'tag' | 'mention' }[]; links: { source: string; target: string }[] }> {
+export async function getGraphData(): Promise<{ nodes: { id: string; title: string; type: 'note' | 'tag' | 'mention' | 'project'; createdAt?: string }[]; links: { source: string; target: string }[] }> {
   const notes = await getNotes();
-  const nodes: { id: string; title: string; type: 'note' | 'tag' | 'mention' }[] = notes.map(n => ({ id: n.slug, title: n.title, type: 'note' }));
+  const nodes: { id: string; title: string; type: 'note' | 'tag' | 'mention' | 'project'; createdAt?: string }[] = notes.map(n => ({ 
+    id: n.slug, 
+    title: n.title, 
+    type: 'note',
+    createdAt: n.createdAt
+  }));
   const links: { source: string; target: string }[] = [];
   const tagsFound = new Set<string>();
   const mentionsFound = new Set<string>();
