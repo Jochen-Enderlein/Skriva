@@ -163,8 +163,6 @@ export function GraphView({ data }: GraphViewProps) {
     graphData: processedData,
     nodeLabel: "title",
     backgroundColor: isDark ? '#050505' : '#ffffff',
-    linkColor: () => isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
-    linkWidth: 1,
     nodeRelSize: 6,
     onNodeClick: (node: any) => {
       if (node.type === 'note') {
@@ -205,6 +203,8 @@ export function GraphView({ data }: GraphViewProps) {
           <ForceGraph3D
             {...commonProps}
             ref={fgRef}
+            linkColor={() => isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'}
+            linkWidth={1}
             nodeThreeObject={(node: any) => {
               const group = new THREE.Group();
               
@@ -256,6 +256,8 @@ export function GraphView({ data }: GraphViewProps) {
         ) : (
           <ForceGraph2D
             {...commonProps}
+            linkColor={() => isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)'}
+            linkWidth={1.5}
             nodeCanvasObject={(node: any, ctx, globalScale) => {
               const label = node.title;
               const fontSize = 12 / globalScale;
